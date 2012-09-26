@@ -30,19 +30,37 @@ public interface ITabulator
    * Returns the width of the tab stop that is at or after the given position.
    * 
    * @param aPosition
-   *          the column position used to determine the next tab stop, > 0.
-   * @return the next tab stop width, > 0.
+   *          the column position used to determine the next tab stop, >= 0.
+   * @return the next tab stop width, >= 0.
    */
-  int getTabWidth( int aPosition );
+  int getNextTabWidth( int aPosition );
+
+  /**
+   * Returns the width of the tab stop that is before the given position.
+   * 
+   * @param aPosition
+   *          the column position used to determine the previous tab stop, >= 0.
+   * @return the previous tab stop width, >= 0.
+   */
+  int getPreviousTabWidth( int aPosition );
 
   /**
    * Returns the next tab stop that is at or after the given position.
    * 
    * @param aPosition
-   *          the column position used to determine the next tab stop, > 0.
-   * @return the next tab stop, > 0.
+   *          the column position used to determine the next tab stop, >= 0.
+   * @return the next tab stop, >= 0.
    */
   int nextTab( int aPosition );
+
+  /**
+   * Returns the previous tab stop that is before the given position.
+   * 
+   * @param aPosition
+   *          the column position used to determine the previous tab stop, >= 0.
+   * @return the previous tab stop, >= 0.
+   */
+  int previousTab( int aPosition );
 
   /**
    * Sets the tab stop to the given position.
@@ -51,13 +69,4 @@ public interface ITabulator
    *          the position of the (new) tab stop, > 0.
    */
   void set( int aPosition );
-
-  /**
-   * Sets the default tab stop increment.
-   * 
-   * @param aDefault
-   *          the default tab stop increment, > 0.
-   */
-  void setDefault( int aDefault );
-
 }

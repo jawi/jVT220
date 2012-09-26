@@ -27,28 +27,27 @@ public abstract class AbstractTerminal implements ITerminal
     // VARIABLES
 
     private final SortedSet<Integer> tabStops;
-    private final boolean useDefaultTabStops;
-
-    private int defaultTabStop;
 
     // CONSTRUCTORS
 
     /**
      * Creates a new {@link DefaultTabulator} instance.
      */
-    public DefaultTabulator()
+    public DefaultTabulator( int aColumns )
     {
-      this( false /* aUseDefaultTabStops */);
+      this( aColumns, 8 );
     }
 
     /**
      * Creates a new {@link DefaultTabulator} instance.
      */
-    public DefaultTabulator( boolean aUseDefaultTabStops )
+    public DefaultTabulator( int aColumns, int aTabStop )
     {
       this.tabStops = new TreeSet<Integer>();
-      this.defaultTabStop = 8;
-      this.useDefaultTabStops = aUseDefaultTabStops;
+      for ( int i = aTabStop; i < aColumns; i += aTabStop )
+      {
+        this.tabStops.add( Integer.valueOf( i ) );
+      }
     }
 
     // METHODS
@@ -72,6 +71,24 @@ public abstract class AbstractTerminal implements ITerminal
     }
 
     /**
+     * {@inheritDoc}
+     */
+    @Override
+    public int getNextTabWidth( int aPosition )
+    {
+      return nextTab( aPosition ) - aPosition;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public int getPreviousTabWidth( int aPosition )
+    {
+      return aPosition - previousTab( aPosition );
+    }
+
+    /**
      * @return the current tab stops, never <code>null</code>.
      */
     public SortedSet<Integer> getTabStops()
@@ -83,39 +100,38 @@ public abstract class AbstractTerminal implements ITerminal
      * {@inheritDoc}
      */
     @Override
-    public int getTabWidth( int aPosition )
+    public int nextTab( int aPosition )
     {
-      return nextTab( aPosition ) - aPosition;
+      // Search for the first tab stop at or after the given position...
+      int tabStop = Integer.MAX_VALUE;
+
+      SortedSet<Integer> tailSet = this.tabStops.tailSet( Integer.valueOf( aPosition + 1 ) );
+      if ( !tailSet.isEmpty() )
+      {
+        tabStop = tailSet.first();
+      }
+
+      // Don't go beyond the end of the line...
+      return Math.min( tabStop, ( getWidth() - 1 ) );
     }
 
     /**
      * {@inheritDoc}
      */
     @Override
-    public int nextTab( int aPosition )
+    public int previousTab( int aPosition )
     {
       // Search for the first tab stop at or after the given position...
-      int tabStop;
+      int tabStop = 0;
 
-      SortedSet<Integer> tailSet = this.tabStops.tailSet( Integer.valueOf( aPosition ) );
-      if ( !tailSet.isEmpty() )
+      SortedSet<Integer> headSet = this.tabStops.headSet( Integer.valueOf( aPosition ) );
+      if ( !headSet.isEmpty() )
       {
-        tabStop = tailSet.first();
-      }
-      else if ( this.useDefaultTabStops )
-      {
-        double pos = aPosition + 1.0;
-        tabStop = ( int )( Math.ceil( pos / this.defaultTabStop ) * this.defaultTabStop );
-      }
-      else
-      {
-        tabStop = Integer.MAX_VALUE;
+        tabStop = headSet.last();
       }
 
-      // Don't go beyond the end of the line...
-      tabStop = Math.min( tabStop, ( getWidth() - 1 ) );
-
-      return tabStop;
+      // Don't go beyond the start of the line...
+      return Math.max( 0, tabStop );
     }
 
     /**
@@ -125,15 +141,6 @@ public abstract class AbstractTerminal implements ITerminal
     public void set( int aPosition )
     {
       this.tabStops.add( Integer.valueOf( aPosition ) );
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void setDefault( int aDefault )
-    {
-      this.defaultTabStop = aDefault;
     }
   }
 
@@ -194,7 +201,7 @@ public abstract class AbstractTerminal implements ITerminal
     this.textAttributes = new TextAttributes();
     this.cursor = new CursorImpl();
     this.options = new BitSet();
-    this.tabulator = new DefaultTabulator();
+    this.tabulator = new DefaultTabulator( aColumns );
 
     internalSetDimensions( aColumns, aLines );
 
@@ -238,7 +245,7 @@ public abstract class AbstractTerminal implements ITerminal
         throw new IllegalArgumentException( "Invalid clear line mode!" );
     }
 
-    clearLine( aMode, idx );
+    clearLine( aMode, idx, false /* aKeepProtectedCells */);
   }
 
   /**
@@ -253,7 +260,7 @@ public abstract class AbstractTerminal implements ITerminal
     final int xPos = this.cursor.getX();
     final int yPos = this.cursor.getY();
 
-    clearScreen( aMode, getAbsoluteIndex( xPos, yPos ) );
+    clearScreen( aMode, getAbsoluteIndex( xPos, yPos ), false /* aKeepProtectedCells */);
   }
 
   /**
@@ -595,19 +602,21 @@ public abstract class AbstractTerminal implements ITerminal
    * Sets the dimensions of this terminal to the given width and height.
    * 
    * @param aNewWidth
-   *          the new width of this terminal, > 0;
+   *          the new width of this terminal, in columns. If <= 0, then the
+   *          current width will be used;
    * @param aNewHeight
-   *          the new height of this terminal, > 0.
+   *          the new height of this terminal, in lines. If <= 0, then the
+   *          current height will be used.
    */
-  public void setDimensions( final int aNewWidth, final int aNewHeight )
+  public void setDimensions( int aNewWidth, int aNewHeight )
   {
     if ( aNewWidth <= 0 )
     {
-      throw new IllegalArgumentException( "Invalid width!" );
+      aNewWidth = this.width;
     }
     if ( aNewHeight <= 0 )
     {
-      throw new IllegalArgumentException( "Invalid height!" );
+      aNewHeight = this.height;
     }
 
     if ( ( aNewWidth == this.width ) && ( aNewHeight == this.height ) )
@@ -757,7 +766,7 @@ public abstract class AbstractTerminal implements ITerminal
    * @param aAbsoluteIndex
    *          the absolute index of the cursor.
    */
-  protected final void clearLine( final int aMode, final int aAbsoluteIndex )
+  protected final void clearLine( final int aMode, final int aAbsoluteIndex, final boolean aKeepProtectedCells )
   {
     int width = getWidth();
     int yPos = ( int )Math.floor( aAbsoluteIndex / width );
@@ -790,7 +799,7 @@ public abstract class AbstractTerminal implements ITerminal
 
     for ( int i = 0; i < length; i++ )
     {
-      removeChar( idx++ );
+      removeChar( idx++, aKeepProtectedCells );
     }
   }
 
@@ -803,7 +812,7 @@ public abstract class AbstractTerminal implements ITerminal
    * @param aAbsoluteIndex
    *          the absolute index of the cursor.
    */
-  protected final void clearScreen( final int aMode, final int aAbsoluteIndex )
+  protected final void clearScreen( final int aMode, final int aAbsoluteIndex, final boolean aKeepProtectedCells )
   {
     switch ( aMode )
     {
@@ -812,7 +821,7 @@ public abstract class AbstractTerminal implements ITerminal
         int lastIdx = getLastAbsoluteIndex();
         for ( int i = aAbsoluteIndex; i <= lastIdx; i++ )
         {
-          removeChar( i );
+          removeChar( i, aKeepProtectedCells );
         }
         break;
       case 1:
@@ -820,15 +829,27 @@ public abstract class AbstractTerminal implements ITerminal
         int firstIdx = getFirstAbsoluteIndex();
         for ( int i = firstIdx; i <= aAbsoluteIndex; i++ )
         {
-          removeChar( i );
+          removeChar( i, aKeepProtectedCells );
         }
         break;
       case 2:
         // erase entire screen...
-        Arrays.fill( this.buffer, getFirstAbsoluteIndex(), getLastAbsoluteIndex() + 1, new TextCell( ' ',
-            getAttributes() ) );
-        // Update the heat map...
-        Arrays.fill( this.heatMap, true );
+        if ( aKeepProtectedCells )
+        {
+          // Be selective in what we remove...
+          for ( int i = getFirstAbsoluteIndex(), last = getLastAbsoluteIndex(); i <= last; i++ )
+          {
+            removeChar( i, aKeepProtectedCells );
+          }
+        }
+        else
+        {
+          // Don't be selective in what we remove...
+          Arrays.fill( this.buffer, getFirstAbsoluteIndex(), getLastAbsoluteIndex() + 1, new TextCell( ' ',
+              getAttributes() ) );
+          // Update the heat map...
+          Arrays.fill( this.heatMap, true );
+        }
         break;
 
       default:
@@ -1054,10 +1075,14 @@ public abstract class AbstractTerminal implements ITerminal
    * Removes the character at the absolute index.
    * 
    * @param aAbsoluteIndex
-   *          the index on which to remove the character, >= 0.
+   *          the index on which to remove the character, >= 0;
+   * @param aKeepProtectedCells
+   *          <code>true</code> to honor the 'protected' bit of text cells and
+   *          leave the text cell unchanged, <code>false</code> to ignore this
+   *          bit and clear the text cell anyways.
    * @return the absolute index on which the character was removed.
    */
-  protected final int removeChar( final int aAbsoluteIndex )
+  protected final int removeChar( final int aAbsoluteIndex, final boolean aKeepProtectedCells )
   {
     int idx = aAbsoluteIndex;
     int firstIdx = getFirstAbsoluteIndex();
@@ -1070,13 +1095,14 @@ public abstract class AbstractTerminal implements ITerminal
       idx = getLastAbsoluteIndex();
     }
 
-    TextCell cell = this.buffer[idx];
-    if ( cell != null )
+    // Clear the character at the given position, using the most current
+    // attributes...
+    if ( !( aKeepProtectedCells && this.buffer[idx].isProtected() ) )
     {
-      cell = new TextCell( ' ', cell.getAttributes() );
+      this.buffer[idx] = new TextCell( ' ', getAttributes() );
+      this.heatMap[idx] = true;
     }
-    this.buffer[idx] = cell;
-    this.heatMap[idx] = true;
+
     return idx;
   }
 

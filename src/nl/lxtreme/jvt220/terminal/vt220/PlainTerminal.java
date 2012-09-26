@@ -103,7 +103,7 @@ public class PlainTerminal extends AbstractTerminal
       {
         case '\010':
           // Backspace
-          idx = removeChar( --idx );
+          idx = removeChar( --idx, false /* aKeepProtectedCells */ );
           break;
 
         case '\007':

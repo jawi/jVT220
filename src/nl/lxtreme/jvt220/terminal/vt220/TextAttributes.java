@@ -52,9 +52,7 @@ class TextAttributes
    */
   public int getBackground()
   {
-//    int fg = ( this.attr & COLOR_MASK );
     int bg = ( ( this.attr >> 5 ) & COLOR_MASK );
-//    return isReverse() ? fg : bg;
     return bg;
   }
 
@@ -64,8 +62,6 @@ class TextAttributes
   public int getForeground()
   {
     int fg = ( this.attr & COLOR_MASK );
-//    int bg = ( ( this.attr >> 5 ) & COLOR_MASK );
-//    return isReverse() ^ isHidden() ? bg : fg;
     return fg;
   }
 
@@ -155,6 +151,7 @@ class TextAttributes
   public void setBackground( int aIndex )
   {
     int bg = ( aIndex & COLOR_MASK ) << 5;
+    this.attr &= 0xFE1F; // clear bg color bits...
     this.attr |= bg;
   }
 
@@ -177,6 +174,7 @@ class TextAttributes
   public void setForeground( int aIndex )
   {
     int fg = aIndex & COLOR_MASK;
+    this.attr &= 0xFFE0; // clear fg color bits...
     this.attr |= fg;
   }
 

@@ -27,9 +27,16 @@ public interface ITerminalFrontend
   // METHODS
 
   /**
+   * Returns the maximum possible size of the terminal in columns and lines to fit on this frontend.
+   * 
+   * @return the maximum dimensions, never <code>null</code>.
+   */
+  Dimension getMaximumTerminalSize();
+
+  /**
    * Returns the width and height of the terminal in pixels.
    * 
-   * @return the dimensions, never <code>null</code>.
+   * @return the current dimensions, never <code>null</code>.
    */
   Dimension getSize();
 

@@ -31,7 +31,7 @@ public class TestConsole
 
   // VARIABLES
 
-  private SwingFrontend consolePane;
+  private SwingFrontend frontend;
   private JFrame frame;
 
   private volatile Pty process;
@@ -105,7 +105,7 @@ public class TestConsole
     {
       try
       {
-        this.consolePane.disconnect();
+        this.frontend.disconnect();
       }
       catch ( IOException e1 )
       {
@@ -155,13 +155,11 @@ public class TestConsole
    */
   void initUI()
   {
-    this.consolePane = new SwingFrontend();
-    // this.consolePane = new OldConsolePane( 80, 24 );
-    this.consolePane.setBorder( BorderFactory.createEmptyBorder( 4, 4, 4, 4 ) );
+    this.frontend = new SwingFrontend();
+    this.frontend.setBorder( BorderFactory.createEmptyBorder( 4, 4, 4, 4 ) );
 
     this.frame = new JFrame( "Test console" );
-    this.frame.setDefaultCloseOperation( JFrame.DISPOSE_ON_CLOSE );
-    this.frame.setPreferredSize( new Dimension( 640, 480 ) );
+    this.frame.setDefaultCloseOperation( WindowConstants.DISPOSE_ON_CLOSE );
     this.frame.addWindowListener( new WindowAdapter()
     {
       @Override
@@ -171,11 +169,45 @@ public class TestConsole
       }
     } );
 
-    JPanel panel = new JPanel( new BorderLayout( 4, 4 ) );
-    panel.add( this.consolePane, BorderLayout.CENTER );
+    this.frontend.addComponentListener( new ComponentAdapter()
+    {
+      @Override
+      public void componentResized( ComponentEvent aEvent )
+      {
+        resizeFrameToFitContent();
+      }
+    } );
 
-    this.frame.setContentPane( panel );
+    this.frame.setContentPane( this.frontend );
     this.frame.pack();
+  }
+
+  /**
+   * Resizes the frame to fix its contents. When the frame is only partially
+   * visible after resizing, it will be moved to make most of it visible.
+   */
+  void resizeFrameToFitContent()
+  {
+    final Dimension frontendSize = this.frontend.getSize();
+    final Insets frameInsets = this.frame.getInsets();
+
+    int width = frameInsets.left + frameInsets.right + frontendSize.width;
+    int height = frameInsets.top + frameInsets.bottom + frontendSize.height;
+
+    this.frame.setSize( width, height );
+
+    Rectangle screenBounds = this.frame.getGraphicsConfiguration().getBounds();
+
+    Rectangle frameBounds = this.frame.getBounds();
+    if ( frameBounds.x + frameBounds.width > screenBounds.width )
+    {
+      frameBounds.x = screenBounds.x;
+    }
+    if ( frameBounds.y + frameBounds.height > screenBounds.height )
+    {
+      frameBounds.y = screenBounds.y;
+    }
+    this.frame.setBounds( frameBounds );
   }
 
   /**
@@ -188,8 +220,7 @@ public class TestConsole
 
     if ( aLocal )
     {
-      this.process = JPty.execInPTY( CMD[0], CMD, new String[] { "TERM=xterm-256color", "USER=jawi", "HOME=/Users/jawi" },
-          null, null );
+      this.process = JPty.execInPTY( CMD[0], CMD, new String[] { "TERM=vt220", "USER=jawi", "HOME=/Users/jawi" } );
 
       os = this.process.getOutputStream();
       is = this.process.getInputStream();
@@ -217,8 +248,8 @@ public class TestConsole
       term = new PlainTerminal( os, 80, 24 );
     }
 
-    this.consolePane.setTerminal( term );
-    this.consolePane.connect( is, os );
+    this.frontend.setTerminal( term );
+    this.frontend.connect( is, os );
   }
 
   /**

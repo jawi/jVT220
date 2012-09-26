@@ -48,7 +48,7 @@ public class SwingFrontend extends JComponent implements ITerminalFrontend
      */
     public InputStreamWorker( final InputStream aInputStream, ITerminal aTerminal ) throws IOException
     {
-      this.reader = new InputStreamReader( aInputStream, "UTF-8" );
+      this.reader = new InputStreamReader( aInputStream, "ISO8859-1" );
       this.terminal = aTerminal;
       this.buffer = new CharBuffer();
     }
@@ -106,7 +106,7 @@ public class SwingFrontend extends JComponent implements ITerminalFrontend
      */
     public OutputStreamWorker( final OutputStream aOutputStream ) throws IOException
     {
-      this.writer = new OutputStreamWriter( aOutputStream, "UTF-8" );
+      this.writer = new OutputStreamWriter( aOutputStream, "ISO8859-1" );
     }
 
     // METHODS
@@ -286,26 +286,24 @@ public class SwingFrontend extends JComponent implements ITerminalFrontend
       setEnabled( false );
     }
   }
-
+  
   /**
    * {@inheritDoc}
    */
   @Override
-  public Dimension getPreferredSize()
+  public Dimension getMaximumTerminalSize()
   {
-    int columns = this.terminal.getWidth();
-    int lines = this.terminal.getHeight();
+    Rectangle bounds = getGraphicsConfiguration().getBounds();
+    Insets insets = calculateTotalInsets();
+    
+    int width = bounds.width - insets.left - insets.right;
+    int height = bounds.height - insets.top - insets.bottom;
 
-    return calculateSizeInPixels( columns, lines );
-  }
-
-  /**
-   * {@inheritDoc}
-   */
-  @Override
-  public Dimension getSize()
-  {
-    return getPreferredSize();
+    // Calculate the maximum number of columns & lines...
+    int columns = width / this.charWidth;
+    int lines = height / ( this.charHeight + this.lineSpacing );
+    
+    return new Dimension( columns, lines );
   }
 
   /**
@@ -330,6 +328,40 @@ public class SwingFrontend extends JComponent implements ITerminalFrontend
     this.charWidth = cdims[0];
     this.charHeight = cdims[1];
     this.lineSpacing = cdims[2];
+  }
+
+  /**
+   * Sets the size of this component in pixels. Overridden in order to redirect
+   * this call to {@link #terminalSizeChanged(int, int)} with the correct number
+   * of columns and lines.
+   */
+  @Override
+  public void setSize( int aWidth, int aHeight )
+  {
+    Rectangle bounds = getGraphicsConfiguration().getBounds();
+    Insets insets = calculateTotalInsets();
+
+    if ( aWidth == 0 )
+    {
+      aWidth = bounds.width - insets.left - insets.right;
+    }
+    else if ( aWidth < 0 )
+    {
+      aWidth = getWidth();
+    }
+    if ( aHeight == 0 )
+    {
+      aHeight = bounds.height - insets.top - insets.bottom;
+    }
+    else if ( aHeight < 0 )
+    {
+      aHeight = getHeight();
+    }
+
+    int columns = aWidth / this.charWidth;
+    int lines = aHeight / ( this.charHeight + this.lineSpacing );
+
+    terminalSizeChanged( columns, lines );
   }
 
   /**
@@ -372,7 +404,7 @@ public class SwingFrontend extends JComponent implements ITerminalFrontend
 
     final Font font = getFont();
     final FontMetrics fm = canvas.getFontMetrics();
-    final FontRenderContext frc = new FontRenderContext( null, true, true );
+    final FontRenderContext frc = new FontRenderContext( null, false, true );
 
     if ( this.oldCursor != null )
     {
@@ -439,8 +471,7 @@ public class SwingFrontend extends JComponent implements ITerminalFrontend
   @Override
   public void terminalSizeChanged( int aColumns, int aLines )
   {
-    Dimension dims = calculateSizeInPixels( aColumns, aLines );
-    setSize( dims );
+    final Dimension dims = calculateSizeInPixels( aColumns, aLines );
 
     if ( ( this.image == null ) || ( this.image.getWidth() != dims.width ) || ( this.image.getHeight() != dims.height ) )
     {
@@ -455,13 +486,17 @@ public class SwingFrontend extends JComponent implements ITerminalFrontend
       try
       {
         canvas.setBackground( this.colorScheme.getBackgroundColor() );
-        canvas.clearRect( 0, 0, dims.width, dims.height );
+        canvas.clearRect( 0, 0, this.image.getWidth(), this.image.getHeight() );
       }
       finally
       {
         canvas.dispose();
         canvas = null;
       }
+
+      // Update the size of this component as well...
+      Insets insets = getInsets();
+      super.setSize( dims.width + insets.left + insets.right, dims.height + insets.top + insets.bottom );
 
       repaint( 50L );
     }
@@ -477,7 +512,9 @@ public class SwingFrontend extends JComponent implements ITerminalFrontend
 
     try
     {
-      aCanvas.drawImage( this.image, 0, 0, null /* observer */);
+      Insets insets = getInsets();
+
+      aCanvas.drawImage( this.image, insets.left, insets.top, null /* observer */);
     }
     finally
     {
@@ -555,17 +592,43 @@ public class SwingFrontend extends JComponent implements ITerminalFrontend
   }
 
   /**
+   * Calculates the size (in pixels) of the backbuffer image.
+   * 
    * @param aColumns
+   *          the number of columns, > 0;
    * @param aLines
-   * @return
+   *          the number of lines, > 0.
+   * @return a dimension with the image width and height in pixels.
    */
   private Dimension calculateSizeInPixels( int aColumns, int aLines )
   {
-    Insets insets = getInsets();
-    int width = ( aColumns * this.charWidth ) + insets.left + insets.right;
-    int height = ( ( aLines + 1 ) * ( this.charHeight + this.lineSpacing ) ) + insets.top + insets.bottom;
-
+    int width = ( aColumns * this.charWidth );
+    int height = ( aLines * ( this.charHeight + this.lineSpacing ) );
     return new Dimension( width, height );
+  }
+
+  /**
+   * Calculates the total insets of this container and all of its parents.
+   * 
+   * @return the total insets, never <code>null</code>.
+   */
+  private Insets calculateTotalInsets()
+  {
+    // Take the screen insets as starting point...
+    Insets insets = Toolkit.getDefaultToolkit().getScreenInsets( getGraphicsConfiguration() );
+
+    Container ptr = this;
+    do
+    {
+      Insets compInsets = ptr.getInsets();
+      insets.top += compInsets.top;
+      insets.bottom += compInsets.bottom;
+      insets.left += compInsets.left;
+      insets.right += compInsets.right;
+      ptr = ( Container )ptr.getParent();
+    }
+    while ( ptr != null );
+    return insets;
   }
 
   /**

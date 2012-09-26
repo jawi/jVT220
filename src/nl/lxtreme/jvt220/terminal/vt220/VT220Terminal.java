@@ -246,14 +246,14 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
   // CONSTANTS
 
   private static final int OPTION_132COLS = 5;
+  private static final int OPTION_8BIT = 6;
+  private static final int OPTION_ERASURE_MODE = 7;
 
   // VARIABLES
 
   private final GraphicSetState graphicSetState;
   private final VT220Parser vt220parser;
   private final StateHolder savedState;
-  
-  private boolean eightBitMode = false;
 
   // CONSTRUCTORS
 
@@ -274,6 +274,9 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
     this.graphicSetState = new GraphicSetState();
     this.vt220parser = new VT220Parser( 0 );
     this.savedState = new StateHolder();
+
+    // Make sure the terminal is in a known state...
+    softReset();
   }
 
   // METHODS
@@ -333,10 +336,7 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
       case TAB:
       {
         // Tab...
-        int col = idx % getWidth();
-        int tw = getTabulator().getTabWidth( col );
-
-        idx += tw;
+        idx += getTabulator().getNextTabWidth( idx % getWidth() );
         break;
       }
 
@@ -539,7 +539,7 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
         int count = aParameters[0];
         while ( count-- > 0 )
         {
-          idx += getTabulator().getTabWidth( idx % getWidth() );
+          idx += getTabulator().getNextTabWidth( idx % getWidth() );
         }
         break;
       }
@@ -549,7 +549,7 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
         // Erase in Display...
         int mode = aParameters[0];
 
-        clearScreen( mode, idx );
+        clearScreen( mode, idx, isErasureMode() );
         break;
       }
 
@@ -558,7 +558,7 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
         // Erase in Display...
         int mode = aParameters[0];
 
-        clearScreen( mode, idx ); // TODO
+        clearScreen( mode, idx, true /* aKeepProtectedCells */);
         break;
       }
 
@@ -567,7 +567,7 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
         // Clear line...
         int mode = aParameters[0];
 
-        clearLine( mode, idx );
+        clearLine( mode, idx, isErasureMode() );
         break;
       }
 
@@ -576,7 +576,7 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
         // Clear line...
         int mode = aParameters[0];
 
-        clearLine( mode, idx ); // TODO
+        clearLine( mode, idx, true /* aKeepProtectedCells */);
         break;
       }
 
@@ -651,7 +651,7 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
 
         do
         {
-          removeChar( tmpIdx++ );
+          removeChar( tmpIdx++, isErasureMode() );
         }
         while ( n-- > 0 );
         break;
@@ -663,7 +663,7 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
         int count = aParameters[0];
         while ( count-- > 0 )
         {
-          idx -= getTabulator().getTabWidth( idx % getWidth() ); // XXX
+          idx -= getTabulator().getPreviousTabWidth( idx % getWidth() );
         }
         break;
       }
@@ -777,6 +777,11 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
             setInsertMode( true );
             break;
 
+          case 6:
+            // (ERM) Erasure mode
+            setErasureMode( false );
+            break;
+
           case 20:
             // (LNM) Automatic Newline
             setAutoNewlineMode( true );
@@ -799,6 +804,7 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
             // (DECANM) Designate USASCII for character sets G0-G3; set VT100
             // mode.
             this.graphicSetState.resetState();
+            set8bitMode( false );
             break;
 
           case 3:
@@ -808,9 +814,9 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
             // Reset cursor to first possible position...
             idx = getAbsoluteIndex( 0, getFirstScrollLine() );
             break;
-            
+
           case 4:
-            // (DECSCLM)  Smooth (Slow) Scroll; ignored...
+            // (DECSCLM) Smooth (Slow) Scroll; ignored...
             break;
 
           case 5:
@@ -886,6 +892,11 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
             setInsertMode( false );
             break;
 
+          case 6:
+            // (ERM) Erasure mode
+            setErasureMode( true );
+            break;
+
           case 20:
             // (LNM) Automatic Newline
             setAutoNewlineMode( false );
@@ -917,9 +928,9 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
             // Reset cursor to first possible position...
             idx = getAbsoluteIndex( 0, getFirstScrollLine() );
             break;
-            
+
           case 4:
-            // (DECSCLM)  Smooth (Slow) Scroll; ignored...
+            // (DECSCLM) Smooth (Slow) Scroll; ignored...
             break;
 
           case 5:
@@ -1021,13 +1032,19 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
 
       case DECSCL: // "p
       {
-        // Set conformance level TODO
+        // Set conformance level
+        int compatibilityLevel = ( aParameters[0] - 60 );
+        int eightBitMode = ( aParameters.length > 1 ) ? aParameters[1] : 0;
+        setConformanceLevel( compatibilityLevel, eightBitMode != 1 );
         break;
       }
 
       case DECSCA: // "q
       {
-        // Select character protection attribute TODO
+        // Select character protection attribute
+        int mode = aParameters[0];
+        // 0 or 2 == erasable; 1 == not erasable...
+        this.textAttributes.setProtected( mode == 1 );
         break;
       }
 
@@ -1079,11 +1096,8 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
               int height = aParameters[1];
               int width = aParameters[2];
 
-              ITerminalFrontend frontend = getFrontend();
-              if ( frontend != null )
-              {
-                frontend.setSize( width, height );
-              }
+              setDimensionsInPixels( width, height );
+              idx = getFirstAbsoluteIndex();
             }
             break;
 
@@ -1095,6 +1109,7 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
               int cols = aParameters[2];
 
               setDimensions( cols, rows );
+              idx = getFirstAbsoluteIndex();
             }
             break;
 
@@ -1148,6 +1163,7 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
               int rows = type;
 
               setDimensions( cols, rows );
+              idx = getFirstAbsoluteIndex();
             }
             break;
         }
@@ -1331,18 +1347,18 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
         {
           case 'F':
             // 7-bit controls...
-            this.eightBitMode = false;
+            set8bitMode( false );
             break;
 
           case 'G':
             // 8-bit controls...
-            this.eightBitMode = true;
+            set8bitMode( true );
             break;
 
           case 'L':
           case 'M':
           case 'N':
-            // ANSI conformance level... TODO
+            // ANSI conformance level... ignored.
             break;
 
           default:
@@ -1368,7 +1384,7 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
           case '4':
           case '5':
           case '6':
-            // Single/double line width/height...
+            // Single/double line width/height... ignored.
             break;
 
           default:
@@ -1387,6 +1403,18 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
         this.graphicSetState.designateGraphicSet( gs, ( char )aParameters[0] );
         break;
       }
+      case '=':
+      {
+        // (DECPAM) Application Keypad
+        log( "TODO: implemenent Application Keypad mode!" );
+        break;
+      }
+      case '>':
+      {
+        // (DECPNM) Normal Keypad
+        log( "TODO: implemenent Normal Keypad mode!" );
+        break;
+      }
 
       default:
       {
@@ -1396,6 +1424,39 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
     }
     // Update the cursor position...
     updateCursorByAbsoluteIndex( idx );
+  }
+
+  /**
+   * Sets the dimensions of this terminal in columns and lines. Overridden in
+   * order to handle zero and negative values as possible values.
+   * 
+   * @param aNewWidth
+   *          the new width of this terminal in columns, if zero or negative,
+   *          the maximum possible number of columns will be used;
+   * @param aNewHeight
+   *          the new height of this terminal in lines, if zero or negative, the
+   *          maximum possible number of lines will be used.
+   */
+  @Override
+  public void setDimensions( int aNewWidth, int aNewHeight )
+  {
+    if ( aNewWidth <= 0 || aNewHeight <= 0 )
+    {
+      Dimension maximumSize = null;
+      if ( getFrontend() != null )
+      {
+        maximumSize = getFrontend().getMaximumTerminalSize();
+      }
+      if ( aNewWidth <= 0 )
+      {
+        aNewWidth = ( maximumSize != null ) ? maximumSize.width : getWidth();
+      }
+      if ( aNewHeight <= 0 )
+      {
+        aNewHeight = ( maximumSize != null ) ? maximumSize.height : getHeight();
+      }
+    }
+    super.setDimensions( aNewWidth, aNewHeight );
   }
 
   /**
@@ -1420,6 +1481,31 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
   }
 
   /**
+   * Returns whether or not responses are send in 8-bit or in 7-bit mode.
+   * 
+   * @return <code>true</code> if responses are to be sent in 8-bit mode,
+   *         <code>false</code> to send responses in 7-bit mode.
+   * @see #set8bitMode(boolean)
+   */
+  protected final boolean is8bitMode()
+  {
+    return this.options.get( OPTION_8BIT );
+  }
+
+  /**
+   * Returns whether or not protected content can be erased.
+   * 
+   * @return <code>true</code> if only unprotected content can be erased,
+   *         <code>false</code> if both protected and unprotected content can be
+   *         erased.
+   * @see #setErasureMode(boolean)
+   */
+  protected final boolean isErasureMode()
+  {
+    return this.options.get( OPTION_ERASURE_MODE );
+  }
+
+  /**
    * Enables or disables the auto-wrap mode.
    * 
    * @param aEnable
@@ -1441,11 +1527,37 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
   }
 
   /**
-   * XXX
+   * Sets whether or not responses send by this terminal are in 7- or in 8-bit
+   * mode.
+   * 
+   * @param aEnable
+   *          <code>true</code> to send responses in 8-bit mode,
+   *          <code>false</code> to send responses in 7-bit mode.
+   */
+  protected final void set8bitMode( boolean aEnable )
+  {
+    this.options.set( OPTION_8BIT, aEnable );
+  }
+
+  /**
+   * Sets whether or not protected content is to be erased.
+   * 
+   * @param aEnable
+   *          <code>true</code> to allow only unprotected content to be erased,
+   *          <code>false</code> to allow both protected and unprotected content
+   *          to be erased.
+   */
+  protected final void setErasureMode( boolean aEnable )
+  {
+    this.options.set( OPTION_ERASURE_MODE, aEnable );
+  }
+
+  /**
+   * End of protected area.
    */
   private void handleEPA()
   {
-    // TODO Auto-generated method stub
+    this.textAttributes.setProtected( false );
   }
 
   /**
@@ -1637,11 +1749,11 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
   }
 
   /**
-   * @param aTermState
+   * Start of protected area.
    */
   private void handleSPA()
   {
-    // TODO Auto-generated method stub
+    this.textAttributes.setProtected( true );
   }
 
   /**
@@ -1722,6 +1834,63 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
   }
 
   /**
+   * Sets the compatibility level for this terminal.
+   * 
+   * @param aLevel
+   *          &lt;= 1 equals to VT100 mode, &gt;= 2 equals to VT200 mode;
+   * @param aEightBitMode
+   *          <code>true</code> if 8-bit controls are preferred (only in VT200
+   *          mode), <code>false</code> if 7-bit controls are preferred.
+   */
+  private void setConformanceLevel( int aLevel, boolean aEightBitMode )
+  {
+    if ( aLevel <= 1 )
+    {
+      // @formatter:off
+      /* VT100 mode:
+       * - keyboard sends ASCII only;
+       * - keystrokes that normally send DEC Supplemental Characters transfer nothing;
+       * - user-defined keys are do not operate;
+       * - special function keys and six editing keys do not operate (except F11, F12, and F13, which send ESC, BS, and LF, respectively);
+       * - always 7-bit mode: the 8th bit of all received characters is set to zero (0);
+       * - character sets: Only ASCII, national replacement characters, and DEC special graphics are available;
+       * - all transmitted C1 controls are forced to S7C1 state and sent as 7-bit escape sequences.
+       */
+      // @formatter:on
+      set8bitMode( false );
+      this.graphicSetState.resetState();
+    }
+    else if ( aLevel >= 2 )
+    {
+      // @formatter:off
+      /* VT200 mode:
+       * - keyboard permits full use of VT220 keyboard;
+       * - 7 or 8-bit mode: the 8th bit of all received characters is significant;
+       * - all VT220 character sets are available.
+       */
+      // @formatter:on
+      set8bitMode( aEightBitMode );
+    }
+  }
+
+  /**
+   * Sets the dimensions of the terminal frontend, in pixels.
+   * 
+   * @param aWidth
+   *          the new width, in pixels;
+   * @param aHeight
+   *          the new height, in pixels.
+   */
+  private void setDimensionsInPixels( int aWidth, int aHeight )
+  {
+    ITerminalFrontend frontend = getFrontend();
+    if ( frontend != null )
+    {
+      frontend.setSize( aWidth, aHeight );
+    }
+  }
+
+  /**
    * Performs a soft reset.
    */
   private int softReset()
@@ -1729,9 +1898,14 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
     // See: http://www.vt100.net/docs/vt220-rm/table4-10.html
     setOriginMode( false );
     setAutoWrap( false );
+    set8bitMode( false );
+    set132ColumnMode( false );
+    setErasureMode( true );
+
     setScrollRegion( getFirstScrollLine(), getLastScrollLine() );
 
     this.graphicSetState.resetState();
+    this.textAttributes.resetAll();
 
     int idx = getFirstAbsoluteIndex();
 
@@ -1759,11 +1933,11 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
         break;
 
       case OSC:
-        writeResponse( this.eightBitMode ? Character.toString( VT220Parser.OSC ) : "\033]" );
+        writeResponse( is8bitMode() ? Character.toString( VT220Parser.OSC ) : "\033]" );
         break;
 
       case CSI:
-        writeResponse( this.eightBitMode ? Character.toString( VT220Parser.CSI ) : "\033[" );
+        writeResponse( is8bitMode() ? Character.toString( VT220Parser.CSI ) : "\033[" );
         break;
 
       default:
