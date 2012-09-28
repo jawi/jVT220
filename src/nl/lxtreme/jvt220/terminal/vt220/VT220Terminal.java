@@ -248,6 +248,7 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
   private static final int OPTION_132COLS = 5;
   private static final int OPTION_8BIT = 6;
   private static final int OPTION_ERASURE_MODE = 7;
+  private static final int OPTION_REVERSE_WRAP_AROUND = 8;
 
   // VARIABLES
 
@@ -272,11 +273,11 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
     super( aOutputStream, aColumns, aLines );
 
     this.graphicSetState = new GraphicSetState();
-    this.vt220parser = new VT220Parser( 0 );
+    this.vt220parser = new VT220Parser( 4 );
     this.savedState = new StateHolder();
 
     // Make sure the terminal is in a known state...
-    softReset();
+    reset();
   }
 
   // METHODS
@@ -328,14 +329,43 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
       case BS:
       {
         // Backspace...
-        idx = Math.max( getFirstAbsoluteIndex(), idx - 1 );
-        resetWrapped();
+        if ( isWrapped() && ( isAutoWrapMode() || isReverseWrapAround() ) )
+        {
+          /*
+           * When reverse-autowrap mode is enabled, and a backspace is received
+           * when the cursor is at the left-most column of the page, the cursor
+           * is wrapped to the right-most column of the previous line. If the
+           * cursor is at the top line of the scrolling region, the cursor is
+           * wrapped to the right-most column of the bottom line of the
+           * scrolling region. If the cursor is at the top line of terminal
+           * window, the cursor is wrapped to the right-most column of the
+           * bottom line of the terminal window.
+           */
+          idx -= isWrapped() ? 2 : 1;
+          if ( idx < getAbsoluteIndex( 0, getFirstScrollLine() ) )
+          {
+            idx = getAbsoluteIndex( getWidth(), getLastScrollLine() );
+          }
+        }
+        else
+        {
+          /*
+           * When reverse-autowrap mode is disabled, and a backspace is received
+           * when the cursor is at the left-most column of the page, the cursor
+           * remains at that position.
+           */
+          idx -= ( idx % getWidth() == 0 ? 0 : 1 );
+        }
         break;
       }
 
       case TAB:
       {
-        // Tab...
+        /*
+         * (Horizontal) Tab. The cursor moves right to the next tab stop. If
+         * there are no further tab stops set to the right of the cursor, the
+         * cursor moves to the right-most column of the current line.
+         */
         idx += getTabulator().getNextTabWidth( idx % getWidth() );
         break;
       }
@@ -344,26 +374,43 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
       case LF:
       case FF:
       {
-        // Linefeed, vertical tab, or form feed...
-        if ( !isWrapped() || ( idx % getWidth() != 0 ) )
+        /*
+         * Line feed, vertical tab, or form feed. The cursor moves to the same
+         * column of the next line. If the cursor is in the bottom-most line of
+         * the scrolling region, the scrolling region scrolls up one line. Lines
+         * scrolled off the top of the scrolling region are lost. Blank lines
+         * with no visible character attributes are added at the bottom of the
+         * scrolling region.
+         */
+        int row = ( idx / getWidth() );
+        if ( row >= getLastScrollLine() )
         {
-          // Only add this when not already at the first column due to a
-          // wrap-around of the previous line...
+          scrollUp( 1 );
+        }
+        else
+        {
           idx += getWidth();
         }
-        if ( isAutoNewlineMode() )
+        if ( !isAutoNewlineMode() )
         {
-          idx -= ( idx % getWidth() );
+          break;
         }
-        resetWrapped();
-        break;
+        // In case of auto-newline mode: fall through to CR...
       }
 
       case CR:
       {
-        // Carriage return...
+        /*
+         * Carriage return. The cursor moves to the left-most column of the
+         * current line.
+         */
+        if ( isWrapped() && isAutoWrapMode() )
+        {
+          // In case we're already wrapped around to the next line we need to
+          // undo this and go back to the previous line instead...
+          idx--;
+        }
         idx -= ( idx % getWidth() );
-        resetWrapped();
         break;
       }
 
@@ -373,7 +420,9 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
         break;
       }
     }
+
     updateCursorByAbsoluteIndex( idx );
+    resetWrapped();
   }
 
   /**
@@ -810,7 +859,11 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
           case 3:
             // (DECCOLM) switch 80/132 column mode; default = 80 columns.
             set132ColumnMode( true );
-
+            // Clear entire screen...
+            clearScreen( 2 );
+            // Reset scrolling region...
+            setOriginMode( false );
+            setScrollRegion( getFirstScrollLine(), getLastScrollLine() );
             // Reset cursor to first possible position...
             idx = getAbsoluteIndex( 0, getFirstScrollLine() );
             break;
@@ -840,6 +893,11 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
           case 25:
             // (DECTCEM) Show Cursor; default = on.
             getCursor().setVisible( true );
+            break;
+
+          case 45:
+            // Reverse-wraparound Mode; default = on.
+            setReverseWrapAround( true );
             break;
 
           default:
@@ -924,7 +982,11 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
             // (DECCOLM) switch 80/132 column mode; default = 80
             // columns.
             set132ColumnMode( false );
-
+            // Clear entire screen...
+            clearScreen( 2 );
+            // Reset scrolling region...
+            setOriginMode( false );
+            setScrollRegion( getFirstScrollLine(), getLastScrollLine() );
             // Reset cursor to first possible position...
             idx = getAbsoluteIndex( 0, getFirstScrollLine() );
             break;
@@ -954,6 +1016,11 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
           case 25:
             // (DECTCEM) Hide Cursor; default = on.
             getCursor().setVisible( false );
+            break;
+
+          case 45:
+            // Reverse-wraparound Mode; default = on.
+            setReverseWrapAround( false );
             break;
 
           default:
@@ -1026,7 +1093,7 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
       case DECSTR: // !p
       {
         // Soft terminal reset
-        idx = softReset();
+        softReset();
         break;
       }
 
@@ -1239,6 +1306,7 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
     }
     // Update the cursor position...
     updateCursorByAbsoluteIndex( idx );
+    resetWrapped();
   }
 
   /**
@@ -1297,7 +1365,8 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
       }
       case 'c': // RIS
       {
-        idx = hardReset();
+        reset();
+        idx = getFirstAbsoluteIndex();
         break;
       }
       case 'n': // LS2
@@ -1424,6 +1493,18 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
     }
     // Update the cursor position...
     updateCursorByAbsoluteIndex( idx );
+    resetWrapped();
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  @Override
+  public void reset()
+  {
+    softReset();
+    // Clear entire screen...
+    clearScreen( 2 );
   }
 
   /**
@@ -1506,6 +1587,18 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
   }
 
   /**
+   * Returns whether or not reverse wrap arounds are supported.
+   * 
+   * @return <code>true</code> if a "reverse wrap around" is allowed,
+   *         <code>false</code> otherwise.
+   * @see #setReverseWrapAround(boolean)
+   */
+  protected final boolean isReverseWrapAround()
+  {
+    return this.options.get( OPTION_REVERSE_WRAP_AROUND );
+  }
+
+  /**
    * Enables or disables the auto-wrap mode.
    * 
    * @param aEnable
@@ -1550,6 +1643,20 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
   protected final void setErasureMode( boolean aEnable )
   {
     this.options.set( OPTION_ERASURE_MODE, aEnable );
+  }
+
+  /**
+   * Sets whether or not reverse wrap arounds are supported, meaning that
+   * hitting backspace or issuing cursor-back commands after a wrap-around has
+   * taken place will revert this wrap-around.
+   * 
+   * @param aEnable
+   *          <code>true</code> to enable reverse wrap around,
+   *          <code>false</code> to disable it.
+   */
+  protected final void setReverseWrapAround( boolean aEnable )
+  {
+    this.options.set( OPTION_REVERSE_WRAP_AROUND, aEnable );
   }
 
   /**
@@ -1781,19 +1888,6 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
   }
 
   /**
-   * Performs a hard reset.
-   */
-  private int hardReset()
-  {
-    int r = softReset();
-
-    // Clear entire screen...
-    clearScreen( 2 );
-
-    return r;
-  }
-
-  /**
    * (DECRC) Restores the previously stored cursor position.
    */
   private int restoreCursor()
@@ -1857,8 +1951,8 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
        * - all transmitted C1 controls are forced to S7C1 state and sent as 7-bit escape sequences.
        */
       // @formatter:on
+      softReset();
       set8bitMode( false );
-      this.graphicSetState.resetState();
     }
     else if ( aLevel >= 2 )
     {
@@ -1869,6 +1963,7 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
        * - all VT220 character sets are available.
        */
       // @formatter:on
+      softReset();
       set8bitMode( aEightBitMode );
     }
   }
@@ -1893,25 +1988,40 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
   /**
    * Performs a soft reset.
    */
-  private int softReset()
+  private void softReset()
   {
-    // See: http://www.vt100.net/docs/vt220-rm/table4-10.html
+    // See: <http://www.vt100.net/docs/vt220-rm/table4-10.html> and
+    // <http://h30097.www3.hp.com/docs/base_doc/DOCUMENTATION/V50A_HTML/MAN/MAN5/0036____.HTM>
+
+    // Turns on the text cursor (DECTCEM)
+    getCursor().setVisible( true );
+    // Enables replace mode (IRM)
+    setInsertMode( false );
+    // Turns off origin mode (DECOM)
     setOriginMode( false );
-    setAutoWrap( false );
+    // Sets the top and bottom margins to the first and last lines of the window
+    // (DECSTBM)
+    setScrollRegion( getFirstScrollLine(), getLastScrollLine() );
+    // Turns on autowrap (DECAWM)
+    setAutoWrap( true );
+    // Turns off reverse wrap
+    setReverseWrapAround( true );
+    // Unlocks the keyboard (KAM)
+    // Sets the cursor keypad mode to normal (DECCKM)
+    // Sets the numeric keypad mode to numeric (DECNKM)
+
     set8bitMode( false );
     set132ColumnMode( false );
+    // Sets selective erase mode off (DECSCA)
     setErasureMode( true );
 
-    setScrollRegion( getFirstScrollLine(), getLastScrollLine() );
-
+    // Sets all character sets (GL, G0, G1, G2 and G3) to ASCII
     this.graphicSetState.resetState();
+    // Turns off all character attributes (SGR)
     this.textAttributes.resetAll();
 
-    int idx = getFirstAbsoluteIndex();
-
-    saveCursor( idx );
-
-    return idx;
+    // Clears any cursor state information saved with save cursor (DECSC)
+    saveCursor( getFirstAbsoluteIndex() );
   }
 
   /**

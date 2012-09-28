@@ -23,9 +23,13 @@ public class VT220TerminalTest extends TestCase
 
   // METHODS
 
+  /**
+   * Tests that the auto-wrap mode is handled correctly in combination with the
+   * backward movement of the cursor.
+   */
   public void testAutoWrapMoveCursorBackOk() throws IOException
   {
-    this.terminal.setAutoWrap( true );
+    this.terminal.reset();
     // Cursor back after a wrap-around means we're going back onto the previous
     // line...
     this.terminal.readInput( "\033[2J\033[2;1H*\033[2;80H*\033[10D\033E*" );
@@ -44,21 +48,20 @@ public class VT220TerminalTest extends TestCase
 
     // Cursor back after a wrap-around means we're going back onto the previous
     // line...
-    this.terminal.readInput( "\033[2J\033[2;1H*\033[2;80H*\033[10D\012*" );
+    this.terminal.readInput( "\033[2J\033[2;1H*\033[2;80H*\033[10D\015\012*" );
 
     assertEquals( '*', this.terminal.getCellAt( 0, 1 ).getChar() );
     assertEquals( '*', this.terminal.getCellAt( 79, 1 ).getChar() );
     assertEquals( '*', this.terminal.getCellAt( 0, 2 ).getChar() );
   }
 
+  /**
+   * Tests that the auto-wrap mode is handled correctly in various
+   * circumstances.
+   */
   public void testAutoWrapOk() throws IOException
   {
-    StringBuilder sb = new StringBuilder();
-    sb.append( "\033[?3l" ).append( "\033[?3l" );
-    sb.append( "Test of autowrap, mixing control and print characters.\015\012" );
-    sb.append( "The left/right margins should have letters in order:\015\012" );
-    sb.append( "\033[3;29r" );
-    sb.append( "\033[?6h" );
+    this.terminal.readInput( "\033[3;21r\033[?6h" );
 
     for ( int i = 0; i < 26; i++ )
     {
@@ -69,41 +72,70 @@ public class VT220TerminalTest extends TestCase
       {
         case 0:
           /* draw characters as-is, for reference */
-          sb.append( "\033[19;1H" ).append( leftChar );
-          sb.append( "\033[19;80H" ).append( rightChar );
-          sb.append( "\012" );
+          this.terminal.readInput( "\033[19;1H" + leftChar );
+          this.terminal.readInput( "\033[19;80H" + rightChar );
+          this.terminal.readInput( "\015\012" );
           break;
         case 1:
           /* simple wrapping */
-          sb.append( "\033[18;80H" ).append( ( char )( rightChar - 1 ) ).append( leftChar );
-          sb.append( "\033[19;80H" ).append( leftChar ).append( "\010 " ).append( rightChar );
-          sb.append( "\012" );
+          this.terminal.readInput( "\033[18;80H" + ( char )( rightChar - 1 ) + leftChar );
+          this.terminal.readInput( "\033[19;80H" + leftChar + "\010 " + rightChar );
+          this.terminal.readInput( "\015\012" );
           break;
         case 2:
           /* tab to right margin */
-          sb.append( "\033[19;80H" ).append( leftChar ).append( "\010\010" ).append( "\011\011" ).append( rightChar );
-          sb.append( "\033[19;2H" ).append( "\010" ).append( leftChar ).append( "\012" );
+          this.terminal.readInput( "\033[19;80H" + leftChar + "\010\010\011\011" + rightChar );
+          this.terminal.readInput( "\033[19;2H\010" + leftChar );
+          this.terminal.readInput( "\015\012" );
           break;
         default:
           /* newline at right margin */
-          sb.append( "\033[19;80H" ).append( "\012" );
-          sb.append( "\033[18;1H" ).append( leftChar );
-          sb.append( "\033[18;80H" ).append( rightChar );
+          this.terminal.readInput( "\033[19;80H\015\012" );
+          this.terminal.readInput( "\033[18;1H" + leftChar );
+          this.terminal.readInput( "\033[18;80H" + rightChar );
           break;
       }
     }
 
-    sb.append( "\033[?6l" );
-    sb.append( "\033[r" );
-    sb.append( "\033[22;1H" );
-    sb.append( "Push <RETURN>" );
+    // At column zero we should have I..Z, and at the last column, we should
+    // have i..z;
+    for ( int row = 2; row < 20; row++ )
+    {
+      char left = ( char )( 'G' + row );
+      char right = ( char )( 'g' + row );
 
-    this.terminal.readInput( sb );
-
-    System.out.println( this.terminal );
+      assertEquals( left, this.terminal.getCellAt( 0, row ).getChar() );
+      assertEquals( right, this.terminal.getCellAt( 79, row ).getChar() );
+    }
   }
 
-  public void testMoveCursorOk() throws IOException
+  /**
+   * Tests that the scroll down function works correctly.
+   */
+  public void testScrollDownOk() throws IOException
+  {
+    int max = this.terminal.getLastScrollLine();
+    int last = max - 3;
+
+    for ( int n = 1; n < last; n++ )
+    {
+      this.terminal.readInput( String.format( "\033[%1$d;%1$dH", n ) );
+      this.terminal.readInput( "*" );
+      this.terminal.readInput( "\033[1T" );
+    }
+    this.terminal.readInput( String.format( "\033[%d;1H", last + 1 ) );
+    this.terminal.readInput( "----+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8\015\012" );
+
+    for ( int n = 1; n < last; n++ )
+    {
+      assertEquals( '*', this.terminal.getCellAt( n - 1, last - 1 ).getChar() );
+    }
+  }
+
+  /**
+   * Tests that the movement of the cursor is bound to the terminal dimensions.
+   */
+  public void testMoveCursorBoundToTerminalDimensionsOk() throws IOException
   {
     this.terminal.readInput( "\033[999;999H" );
     this.terminal.readInput( "\033[6n" );

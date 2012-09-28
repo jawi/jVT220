@@ -205,8 +205,6 @@ public abstract class AbstractTerminal implements ITerminal
 
     internalSetDimensions( aColumns, aLines );
 
-    this.options.set( OPTION_AUTOWRAP );
-
     this.logLevel = 3;
   }
 

@@ -26,8 +26,8 @@ public class TestConsole
 {
   // CONSTANTS
 
-  // private static final String[] CMD = { "/Users/jawi/bin/vttest" };
-  private static final String[] CMD = { "/bin/bash", "-l" };
+  private static final String[] CMD = { "/Users/jawi/bin/vttest" };
+  // private static final String[] CMD = { "/bin/bash", "-l" };
 
   // VARIABLES
 
