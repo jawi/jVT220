@@ -49,7 +49,7 @@ public class VT220ParserTest extends TestCase
 
   // VARIABLES
 
-  private VT220Parser parser;
+  private VT220Parser m_parser;
 
   // METHODS
 
@@ -60,7 +60,7 @@ public class VT220ParserTest extends TestCase
   {
     final int[] count = { 0 };
 
-    this.parser.parse( "\033[2\010C", new VT220ParserTestAdapter()
+    m_parser.parse( "\033[2\010C", new VT220ParserTestAdapter()
     {
       @Override
       public void handleControl( char aControlChar ) throws IOException
@@ -87,7 +87,7 @@ public class VT220ParserTest extends TestCase
   public void testParseCUP() throws Exception
   {
     final int count[] = { 0 };
-    this.parser.parse( "\033[1;2H", new VT220ParserTestAdapter()
+    m_parser.parse( "\033[1;2H", new VT220ParserTestAdapter()
     {
       @Override
       public void handleCSI( CSIType aType, int... aParameters ) throws IOException
@@ -101,7 +101,7 @@ public class VT220ParserTest extends TestCase
     assertEquals( 1, count[0] );
 
     count[0] = 0;
-    this.parser.parse( "\033[10;20H", new VT220ParserTestAdapter()
+    m_parser.parse( "\033[10;20H", new VT220ParserTestAdapter()
     {
       @Override
       public void handleCSI( CSIType aType, int... aParameters ) throws IOException
@@ -121,7 +121,7 @@ public class VT220ParserTest extends TestCase
   public void testParseDesignateCharacterSetOk() throws Exception
   {
     final int count[] = { 0 };
-    this.parser.parse( "\033(A", new VT220ParserTestAdapter()
+    m_parser.parse( "\033(A", new VT220ParserTestAdapter()
     {
       @Override
       public void handleESC( char aDesignator, int... aParameters ) throws IOException
@@ -134,7 +134,7 @@ public class VT220ParserTest extends TestCase
     assertEquals( 1, count[0] );
 
     count[0] = 0;
-    this.parser.parse( "\033)B", new VT220ParserTestAdapter()
+    m_parser.parse( "\033)B", new VT220ParserTestAdapter()
     {
       @Override
       public void handleESC( char aDesignator, int... aParameters ) throws IOException
@@ -147,7 +147,7 @@ public class VT220ParserTest extends TestCase
     assertEquals( 1, count[0] );
 
     count[0] = 0;
-    this.parser.parse( "\033*C", new VT220ParserTestAdapter()
+    m_parser.parse( "\033*C", new VT220ParserTestAdapter()
     {
       @Override
       public void handleESC( char aDesignator, int... aParameters ) throws IOException
@@ -160,7 +160,7 @@ public class VT220ParserTest extends TestCase
     assertEquals( 1, count[0] );
 
     count[0] = 0;
-    this.parser.parse( "\033+D", new VT220ParserTestAdapter()
+    m_parser.parse( "\033+D", new VT220ParserTestAdapter()
     {
       @Override
       public void handleESC( char aDesignator, int... aParameters ) throws IOException
@@ -180,7 +180,7 @@ public class VT220ParserTest extends TestCase
   {
     final int[] count = { 0 };
 
-    this.parser.parse( "\0337\033[1;1H", new VT220ParserTestAdapter()
+    m_parser.parse( "\0337\033[1;1H", new VT220ParserTestAdapter()
     {
       @Override
       public void handleCSI( CSIType aType, int... aParameters ) throws IOException
@@ -207,6 +207,7 @@ public class VT220ParserTest extends TestCase
    */
   protected void setUp() throws Exception
   {
-    this.parser = new VT220Parser( 1 );
+    m_parser = new VT220Parser();
+    m_parser.setLogLevel( 1 );
   }
 }

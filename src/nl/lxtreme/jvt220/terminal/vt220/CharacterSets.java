@@ -23,7 +23,7 @@ public final class CharacterSets
     ASCII( 'B' )
     {
       @Override
-      public int map( int aIndex )
+      public int map( int index )
       {
         return -1;
       }
@@ -31,9 +31,9 @@ public final class CharacterSets
     BRITISH( 'A' )
     {
       @Override
-      public int map( int aIndex )
+      public int map( int index )
       {
-        if ( aIndex == 3 )
+        if ( index == 3 )
         {
           // Pound sign...
           return '\u00a3';
@@ -44,9 +44,9 @@ public final class CharacterSets
     DANISH( 'E', '6' )
     {
       @Override
-      public int map( int aIndex )
+      public int map( int index )
       {
-        switch ( aIndex )
+        switch ( index )
         {
           case 32:
             return '\u00c4';
@@ -76,11 +76,11 @@ public final class CharacterSets
     DEC_SPECIAL_GRAPHICS( '0', '2' )
     {
       @Override
-      public int map( int aIndex )
+      public int map( int index )
       {
-        if ( aIndex >= 64 && aIndex < 96 )
+        if ( index >= 64 && index < 96 )
         {
-          return ( ( Character )DEC_SPECIAL_CHARS[aIndex - 64][0] ).charValue();
+          return ( ( Character )DEC_SPECIAL_CHARS[index - 64][0] ).charValue();
         }
         return -1;
       }
@@ -88,12 +88,12 @@ public final class CharacterSets
     DEC_SUPPLEMENTAL( 'U', '<' )
     {
       @Override
-      public int map( int aIndex )
+      public int map( int index )
       {
-        if ( aIndex >= 0 && aIndex < 64 )
+        if ( index >= 0 && index < 64 )
         {
           // Set the 8th bit...
-          return aIndex + 160;
+          return index + 160;
         }
         return -1;
       }
@@ -101,9 +101,9 @@ public final class CharacterSets
     DUTCH( '4' )
     {
       @Override
-      public int map( int aIndex )
+      public int map( int index )
       {
-        switch ( aIndex )
+        switch ( index )
         {
           case 3:
             return '\u00a3';
@@ -131,9 +131,9 @@ public final class CharacterSets
     FINNISH( 'C', '5' )
     {
       @Override
-      public int map( int aIndex )
+      public int map( int index )
       {
-        switch ( aIndex )
+        switch ( index )
         {
           case 59:
             return '\u00c4';
@@ -161,9 +161,9 @@ public final class CharacterSets
     FRENCH( 'R' )
     {
       @Override
-      public int map( int aIndex )
+      public int map( int index )
       {
-        switch ( aIndex )
+        switch ( index )
         {
           case 3:
             return '\u00a3';
@@ -191,9 +191,9 @@ public final class CharacterSets
     FRENCH_CANADIAN( 'Q' )
     {
       @Override
-      public int map( int aIndex )
+      public int map( int index )
       {
-        switch ( aIndex )
+        switch ( index )
         {
           case 32:
             return '\u00e0';
@@ -221,9 +221,9 @@ public final class CharacterSets
     GERMAN( 'K' )
     {
       @Override
-      public int map( int aIndex )
+      public int map( int index )
       {
-        switch ( aIndex )
+        switch ( index )
         {
           case 32:
             return '\u00a7';
@@ -249,9 +249,9 @@ public final class CharacterSets
     ITALIAN( 'Y' )
     {
       @Override
-      public int map( int aIndex )
+      public int map( int index )
       {
-        switch ( aIndex )
+        switch ( index )
         {
           case 3:
             return '\u00a3';
@@ -279,9 +279,9 @@ public final class CharacterSets
     SPANISH( 'Z' )
     {
       @Override
-      public int map( int aIndex )
+      public int map( int index )
       {
-        switch ( aIndex )
+        switch ( index )
         {
           case 3:
             return '\u00a3';
@@ -307,9 +307,9 @@ public final class CharacterSets
     SWEDISH( 'H', '7' )
     {
       @Override
-      public int map( int aIndex )
+      public int map( int index )
       {
-        switch ( aIndex )
+        switch ( index )
         {
           case 32:
             return '\u00c9';
@@ -339,9 +339,9 @@ public final class CharacterSets
     SWISS( '=' )
     {
       @Override
-      public int map( int aIndex )
+      public int map( int index )
       {
-        switch ( aIndex )
+        switch ( index )
         {
           case 3:
             return '\u00f9';
@@ -375,16 +375,20 @@ public final class CharacterSets
 
     // VARIABLES
 
-    private final int[] designations;
+    private final int[] m_designations;
 
     // CONSTRUCTORS
 
     /**
      * Creates a new {@link CharacterSet} instance.
+     * 
+     * @param designations
+     *          the characters that designate this character set, cannot be
+     *          <code>null</code>.
      */
-    private CharacterSet( int... aDesignations )
+    private CharacterSet( int... designations )
     {
-      this.designations = aDesignations;
+      m_designations = designations;
     }
 
     // METHODS
@@ -392,16 +396,16 @@ public final class CharacterSets
     /**
      * Returns the {@link CharacterSet} for the given character.
      * 
-     * @param aDesignation
+     * @param designation
      *          the character to translate to a {@link CharacterSet}.
      * @return a character set name corresponding to the given character,
      *         defaulting to ASCII if no mapping could be made.
      */
-    public static CharacterSet valueOf( char aDesignation )
+    public static CharacterSet valueOf( char designation )
     {
       for ( CharacterSet csn : values() )
       {
-        if ( csn.isDesignation( aDesignation ) )
+        if ( csn.isDesignation( designation ) )
         {
           return csn;
         }
@@ -413,27 +417,27 @@ public final class CharacterSets
      * Maps the character with the given index to a character in this character
      * set.
      * 
-     * @param aIndex
+     * @param index
      *          the index of the character set, >= 0 && < 128.
      * @return a mapped character, or -1 if no mapping could be made and the
      *         ASCII value should be used.
      */
-    public abstract int map( int aIndex );
+    public abstract int map( int index );
 
     /**
      * Returns whether or not the given designation character belongs to this
      * character set's set of designations.
      * 
-     * @param aDesignation
+     * @param designation
      *          the designation to test for.
      * @return <code>true</code> if the given designation character maps to this
      *         character set, <code>false</code> otherwise.
      */
-    private boolean isDesignation( char aDesignation )
+    private boolean isDesignation( char designation )
     {
-      for ( int i = 0; i < this.designations.length; i++ )
+      for ( int i = 0; i < m_designations.length; i++ )
       {
-        if ( this.designations[i] == aDesignation )
+        if ( m_designations[i] == designation )
         {
           return true;
         }
@@ -449,23 +453,23 @@ public final class CharacterSets
   {
     // VARIABLES
 
-    private final int index; // 0..3
-    private CharacterSet designation;
+    private final int m_index; // 0..3
+    private CharacterSet m_designation;
 
     // CONSTRUCTORS
 
     /**
      * Creates a new {@link GraphicSet} instance.
      */
-    public GraphicSet( int aIndex )
+    public GraphicSet( int index )
     {
-      if ( aIndex < 0 || aIndex > 3 )
+      if ( index < 0 || index > 3 )
       {
         throw new IllegalArgumentException( "Invalid index!" );
       }
-      this.index = aIndex;
+      m_index = index;
       // The default mapping, based on XTerm...
-      this.designation = CharacterSet.valueOf( ( aIndex == 1 ) ? '0' : 'B' );
+      m_designation = CharacterSet.valueOf( ( index == 1 ) ? '0' : 'B' );
     }
 
     // METHODS
@@ -475,7 +479,7 @@ public final class CharacterSets
      */
     public CharacterSet getDesignation()
     {
-      return this.designation;
+      return m_designation;
     }
 
     /**
@@ -483,39 +487,45 @@ public final class CharacterSets
      */
     public int getIndex()
     {
-      return this.index;
+      return m_index;
     }
 
     /**
      * Maps a given character index to a concrete character.
      * 
-     * @param aOriginal
+     * @param original
      *          the original character to map;
-     * @param aIndex
+     * @param index
      *          the index of the character to map.
-     * @return the mapped character, or -1 if no mapping could be made.
+     * @return the mapped character, or the given original if no mapping could
+     *         be made.
      */
-    public int map( char aOriginal, int aIndex )
+    public int map( char original, int index )
     {
-      int result = this.designation.map( aIndex );
+      int result = m_designation.map( index );
       if ( result < 0 )
       {
-        result = aOriginal;
+        // No mapping, simply return the given original one...
+        result = original;
       }
       return result;
     }
 
     /**
-     * @param aDesignation
-     *          the designation to set
+     * Sets the designation of this graphic set.
+     * 
+     * @param designation
+     *          the designation to set, cannot be <code>null</code>.
+     * @throws IllegalArgumentException
+     *           in case the given designation was <code>null</code>.
      */
-    public void setDesignation( CharacterSet aDesignation )
+    public void setDesignation( CharacterSet designation )
     {
-      if ( aDesignation == null )
+      if ( designation == null )
       {
         throw new IllegalArgumentException( "Designation cannot be null!" );
       }
-      this.designation = aDesignation;
+      m_designation = designation;
     }
   }
 
@@ -664,17 +674,17 @@ public final class CharacterSets
    * Returns the character mapping for a given original value using the given
    * graphic sets GL and GR.
    * 
-   * @param aOriginal
+   * @param original
    *          the original character to map;
-   * @param aGl
+   * @param gl
    *          the GL graphic set, cannot be <code>null</code>;
-   * @param aGr
+   * @param gr
    *          the GR graphic set, cannot be <code>null</code>.
    * @return the mapped character.
    */
-  public static char getChar( char aOriginal, GraphicSet aGl, GraphicSet aGr )
+  public static char getChar( char original, GraphicSet gl, GraphicSet gr )
   {
-    Object[] mapping = getMapping( aOriginal, aGl, aGr );
+    Object[] mapping = getMapping( original, gl, gr );
 
     int ch = ( ( Integer )mapping[0] ).intValue();
     if ( ch > 0 )
@@ -686,52 +696,64 @@ public final class CharacterSets
   }
 
   /**
-   * @param aOriginal
-   * @param aGl
-   * @param aGr
-   * @return
+   * Returns the name for the given character using the given graphic sets GL
+   * and GR.
+   * 
+   * @param original
+   *          the original character to return the name for;
+   * @param gl
+   *          the GL graphic set, cannot be <code>null</code>;
+   * @param gr
+   *          the GR graphic set, cannot be <code>null</code>.
+   * @return the character name.
    */
-  public static String getCharName( char aOriginal, GraphicSet aGl, GraphicSet aGr )
+  public static String getCharName( char original, GraphicSet gl, GraphicSet gr )
   {
-    Object[] mapping = getMapping( aOriginal, aGl, aGr );
+    Object[] mapping = getMapping( original, gl, gr );
 
     String name = ( String )mapping[1];
     if ( name == null )
     {
-      name = String.format( "<%d>", ( int )aOriginal );
+      name = String.format( "<%d>", ( int )original );
     }
 
     return name;
   }
 
   /**
-   * @param aOriginal
-   * @param aGl
-   * @param aGr
-   * @return
+   * Returns the mapping for a given character using the given graphic sets GL
+   * and GR.
+   * 
+   * @param original
+   *          the original character to map;
+   * @param gl
+   *          the GL graphic set, cannot be <code>null</code>;
+   * @param gr
+   *          the GR graphic set, cannot be <code>null</code>.
+   * @return the mapped character.
    */
-  private static Object[] getMapping( char aOriginal, GraphicSet aGl, GraphicSet aGr )
+  private static Object[] getMapping( char original, GraphicSet gl, GraphicSet gr )
   {
-    int mappedChar = aOriginal;
-    if ( aOriginal >= C0_START && aOriginal <= C0_END )
+    int mappedChar = original;
+    if ( original >= C0_START && original <= C0_END )
     {
-      int idx = aOriginal - C0_START;
+      int idx = original - C0_START;
       return C0_CHARS[idx];
     }
-    else if ( aOriginal >= C1_START && aOriginal <= C1_END )
+    else if ( original >= C1_START && original <= C1_END )
     {
-      int idx = aOriginal - C1_START;
+      int idx = original - C1_START;
       return C1_CHARS[idx];
     }
-    else if ( aOriginal >= GL_START && aOriginal <= GL_END )
+    else if ( original >= GL_START && original <= GL_END )
     {
-      int idx = aOriginal - GL_START;
-      mappedChar = aGl.map( aOriginal, idx );
+      int idx = original - GL_START;
+      mappedChar = gl.map( original, idx );
     }
-    else if ( aOriginal >= GR_START && aOriginal <= GR_END )
+    else if ( original >= GR_START && original <= GR_END )
     {
-      int idx = aOriginal - GR_START;
-      mappedChar = aGr.map( aOriginal, idx );
+      int idx = original - GR_START;
+      mappedChar = gr.map( original, idx );
     }
 
     return new Object[] { mappedChar, null };

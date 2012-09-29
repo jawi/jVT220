@@ -18,8 +18,8 @@ public class VT220TerminalTest extends TestCase
 {
   // VARIABLES
 
-  private VT220Terminal terminal;
-  private ByteArrayOutputStream buffer;
+  private VT220Terminal m_terminal;
+  private ByteArrayOutputStream m_buffer;
 
   // METHODS
 
@@ -29,30 +29,29 @@ public class VT220TerminalTest extends TestCase
    */
   public void testAutoWrapMoveCursorBackOk() throws IOException
   {
-    this.terminal.reset();
     // Cursor back after a wrap-around means we're going back onto the previous
     // line...
-    this.terminal.readInput( "\033[2J\033[2;1H*\033[2;80H*\033[10D\033E*" );
+    m_terminal.read( "\033[2J\033[2;1H*\033[2;80H*\033[10D\033E*" );
 
-    assertEquals( '*', this.terminal.getCellAt( 0, 1 ).getChar() );
-    assertEquals( '*', this.terminal.getCellAt( 79, 1 ).getChar() );
-    assertEquals( '*', this.terminal.getCellAt( 0, 2 ).getChar() );
+    assertEquals( '*', m_terminal.getCellAt( 0, 1 ).getChar() );
+    assertEquals( '*', m_terminal.getCellAt( 79, 1 ).getChar() );
+    assertEquals( '*', m_terminal.getCellAt( 0, 2 ).getChar() );
 
     // If a character is written after a wrap-around, cursor back won't go back
     // onto previous line...
-    this.terminal.readInput( "\033[2J\033[2;1H*\033[2;80H**\033[10D\033E*" );
+    m_terminal.read( "\033[2J\033[2;1H*\033[2;80H**\033[10D\033E*" );
 
-    assertEquals( '*', this.terminal.getCellAt( 0, 1 ).getChar() );
-    assertEquals( '*', this.terminal.getCellAt( 79, 1 ).getChar() );
-    assertEquals( '*', this.terminal.getCellAt( 0, 3 ).getChar() );
+    assertEquals( '*', m_terminal.getCellAt( 0, 1 ).getChar() );
+    assertEquals( '*', m_terminal.getCellAt( 79, 1 ).getChar() );
+    assertEquals( '*', m_terminal.getCellAt( 0, 3 ).getChar() );
 
     // Cursor back after a wrap-around means we're going back onto the previous
     // line...
-    this.terminal.readInput( "\033[2J\033[2;1H*\033[2;80H*\033[10D\015\012*" );
+    m_terminal.read( "\033[2J\033[2;1H*\033[2;80H*\033[10D\015\012*" );
 
-    assertEquals( '*', this.terminal.getCellAt( 0, 1 ).getChar() );
-    assertEquals( '*', this.terminal.getCellAt( 79, 1 ).getChar() );
-    assertEquals( '*', this.terminal.getCellAt( 0, 2 ).getChar() );
+    assertEquals( '*', m_terminal.getCellAt( 0, 1 ).getChar() );
+    assertEquals( '*', m_terminal.getCellAt( 79, 1 ).getChar() );
+    assertEquals( '*', m_terminal.getCellAt( 0, 2 ).getChar() );
   }
 
   /**
@@ -61,7 +60,7 @@ public class VT220TerminalTest extends TestCase
    */
   public void testAutoWrapOk() throws IOException
   {
-    this.terminal.readInput( "\033[3;21r\033[?6h" );
+    m_terminal.read( "\033[3;21r\033[?6h" );
 
     for ( int i = 0; i < 26; i++ )
     {
@@ -72,27 +71,27 @@ public class VT220TerminalTest extends TestCase
       {
         case 0:
           /* draw characters as-is, for reference */
-          this.terminal.readInput( "\033[19;1H" + leftChar );
-          this.terminal.readInput( "\033[19;80H" + rightChar );
-          this.terminal.readInput( "\015\012" );
+          m_terminal.read( "\033[19;1H" + leftChar );
+          m_terminal.read( "\033[19;80H" + rightChar );
+          m_terminal.read( "\015\012" );
           break;
         case 1:
           /* simple wrapping */
-          this.terminal.readInput( "\033[18;80H" + ( char )( rightChar - 1 ) + leftChar );
-          this.terminal.readInput( "\033[19;80H" + leftChar + "\010 " + rightChar );
-          this.terminal.readInput( "\015\012" );
+          m_terminal.read( "\033[18;80H" + ( char )( rightChar - 1 ) + leftChar );
+          m_terminal.read( "\033[19;80H" + leftChar + "\010 " + rightChar );
+          m_terminal.read( "\015\012" );
           break;
         case 2:
           /* tab to right margin */
-          this.terminal.readInput( "\033[19;80H" + leftChar + "\010\010\011\011" + rightChar );
-          this.terminal.readInput( "\033[19;2H\010" + leftChar );
-          this.terminal.readInput( "\015\012" );
+          m_terminal.read( "\033[19;80H" + leftChar + "\010\010\011\011" + rightChar );
+          m_terminal.read( "\033[19;2H\010" + leftChar );
+          m_terminal.read( "\015\012" );
           break;
         default:
           /* newline at right margin */
-          this.terminal.readInput( "\033[19;80H\015\012" );
-          this.terminal.readInput( "\033[18;1H" + leftChar );
-          this.terminal.readInput( "\033[18;80H" + rightChar );
+          m_terminal.read( "\033[19;80H\015\012" );
+          m_terminal.read( "\033[18;1H" + leftChar );
+          m_terminal.read( "\033[18;80H" + rightChar );
           break;
       }
     }
@@ -104,8 +103,8 @@ public class VT220TerminalTest extends TestCase
       char left = ( char )( 'G' + row );
       char right = ( char )( 'g' + row );
 
-      assertEquals( left, this.terminal.getCellAt( 0, row ).getChar() );
-      assertEquals( right, this.terminal.getCellAt( 79, row ).getChar() );
+      assertEquals( left, m_terminal.getCellAt( 0, row ).getChar() );
+      assertEquals( right, m_terminal.getCellAt( 79, row ).getChar() );
     }
   }
 
@@ -114,21 +113,19 @@ public class VT220TerminalTest extends TestCase
    */
   public void testScrollDownOk() throws IOException
   {
-    int max = this.terminal.getLastScrollLine();
+    int max = m_terminal.getLastScrollLine();
     int last = max - 3;
 
     for ( int n = 1; n < last; n++ )
     {
-      this.terminal.readInput( String.format( "\033[%1$d;%1$dH", n ) );
-      this.terminal.readInput( "*" );
-      this.terminal.readInput( "\033[1T" );
+      m_terminal.read( String.format( "\033[%1$d;%1$dH", n ) );
+      m_terminal.read( "*" );
+      m_terminal.read( "\033[1T" );
     }
-    this.terminal.readInput( String.format( "\033[%d;1H", last + 1 ) );
-    this.terminal.readInput( "----+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8\015\012" );
 
     for ( int n = 1; n < last; n++ )
     {
-      assertEquals( '*', this.terminal.getCellAt( n - 1, last - 1 ).getChar() );
+      assertEquals( '*', m_terminal.getCellAt( n - 1, last - 1 ).getChar() );
     }
   }
 
@@ -137,10 +134,10 @@ public class VT220TerminalTest extends TestCase
    */
   public void testMoveCursorBoundToTerminalDimensionsOk() throws IOException
   {
-    this.terminal.readInput( "\033[999;999H" );
-    this.terminal.readInput( "\033[6n" );
+    m_terminal.read( "\033[999;999H" );
+    m_terminal.read( "\033[6n" );
 
-    String response = this.buffer.toString();
+    String response = m_buffer.toString();
     assertEquals( "\033[24;80R", response );
   }
 
@@ -149,7 +146,18 @@ public class VT220TerminalTest extends TestCase
    */
   protected void setUp() throws Exception
   {
-    this.buffer = new ByteArrayOutputStream();
-    this.terminal = new VT220Terminal( this.buffer, 80, 24 );
+    m_buffer = new ByteArrayOutputStream();
+    m_terminal = new VT220Terminal( 80, 24 )
+    {
+      @Override
+      public int write( CharSequence aResponse ) throws IOException
+      {
+        for ( int i = 0; i < aResponse.length(); i++ )
+        {
+          m_buffer.write( aResponse.charAt( i ) );
+        }
+        return aResponse.length();
+      }
+    };
   }
 }

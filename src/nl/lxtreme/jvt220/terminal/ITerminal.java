@@ -13,7 +13,7 @@ import java.io.*;
  * Denotes a terminal, which is a text area of fixed dimensions (width and
  * height).
  */
-public interface ITerminal
+public interface ITerminal extends Closeable
 {
   // INNER TYPES
 
@@ -82,6 +82,18 @@ public interface ITerminal
   // METHODS
 
   /**
+   * Closes this terminal and frees all of its resources.
+   * <p>
+   * After a terminal has been closed, it should not be used any more. Doing
+   * this might result in unexpected behavior.
+   * </p>
+   * 
+   * @throws IOException
+   *           in case of I/O problems closing this terminal.
+   */
+  void close() throws IOException;
+
+  /**
    * Returns the cursor of this terminal, denoting the current write-position
    * is.
    * 
@@ -90,17 +102,17 @@ public interface ITerminal
   ICursor getCursor();
 
   /**
-   * Returns the terminal frontend, responsible for representing the contents of
-   * the terminal in a textual or graphical manner.
+   * Returns the terminal front end, responsible for representing the contents
+   * of the terminal visually.
    * 
-   * @return the terminal frontend, cannot be <code>null</code>.
+   * @return the terminal front end, can be <code>null</code> if not set.
    */
   ITerminalFrontend getFrontend();
 
   /**
    * Returns the height of this terminal.
    * 
-   * @return a height, in characters.
+   * @return a height, in lines.
    */
   int getHeight();
 
@@ -114,7 +126,7 @@ public interface ITerminal
   /**
    * Returns the width of this terminal.
    * 
-   * @return a width, in characters.
+   * @return a width, in columns.
    */
   int getWidth();
 
@@ -123,38 +135,42 @@ public interface ITerminal
    * terminal, for example, by regarding it as literal text, or interpreting in
    * some other way.
    * 
-   * @param aChars
+   * @param chars
    *          the character sequence to handle, cannot be <code>null</code>.
    * @return the index until which the given character sequence is handled.
    * @throws IOException
    *           in case of I/O exceptions handling the output.
    * @see #getCursor()
    */
-  int readInput( CharSequence aChars ) throws IOException;
+  int read( CharSequence chars ) throws IOException;
 
   /**
    * Resets this terminal to its initial values, meaning that its content will
    * be cleared, the cursor will be placed in the first (upper left) position
-   * and the scroll region will also be reset.
+   * and all implementation specific options will be reset to their default
+   * values.
    */
   void reset();
 
   /**
-   * Sets the terminal frontend to use.
+   * Sets the terminal front end to use.
    * 
-   * @param aFrontend
-   *          the frontend to use, cannot be <code>null</code>.
+   * @param frontend
+   *          the front end to use, cannot be <code>null</code>.
+   * @throws IllegalArgumentException
+   *           in case the given front end was <code>null</code>.
+   * @see #getFrontend()
    */
-  void setFrontend( ITerminalFrontend aFrontend );
+  void setFrontend( ITerminalFrontend frontend );
 
   /**
    * Handles the given character sequence as response from this terminal.
    * 
-   * @param aChars
+   * @param chars
    *          the character sequence to handle, cannot be <code>null</code>.
    * @return the index until which the given character sequence is handled.
    * @throws IOException
    *           in case of I/O exceptions handling the input.
    */
-  int writeResponse( CharSequence aChars ) throws IOException;
+  int write( CharSequence chars ) throws IOException;
 }

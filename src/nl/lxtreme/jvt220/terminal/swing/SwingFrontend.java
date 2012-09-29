@@ -12,14 +12,12 @@ import java.awt.font.*;
 import java.awt.image.*;
 import java.io.*;
 import java.text.*;
-import java.util.*;
 import java.util.List;
 
 import javax.swing.*;
 
 import nl.lxtreme.jvt220.terminal.*;
 import nl.lxtreme.jvt220.terminal.ITerminal.ITextCell;
-import nl.lxtreme.jvt220.terminal.vt220.*;
 
 
 /**
@@ -30,6 +28,34 @@ public class SwingFrontend extends JComponent implements ITerminalFrontend
   // INNER TYPES
 
   /**
+   * Small container for the width, height and line spacing of a single
+   * character.
+   */
+  static final class CharacterDimensions
+  {
+    final int m_height;
+    final int m_width;
+    final int m_lineSpacing;
+
+    /**
+     * Creates a new {@link CharacterDimensions} instance.
+     * 
+     * @param width
+     *          the width of a single character, in pixels;
+     * @param height
+     *          the height of a single character, in pixels;
+     * @param lineSpacing
+     *          the spacing to use between two lines with characters, in pixels.
+     */
+    public CharacterDimensions( int width, int height, int lineSpacing )
+    {
+      m_width = width;
+      m_height = height;
+      m_lineSpacing = lineSpacing;
+    }
+  }
+
+  /**
    * Asynchronous worker that reads data from an input stream and passes this to
    * the terminal backend.
    */
@@ -37,20 +63,18 @@ public class SwingFrontend extends JComponent implements ITerminalFrontend
   {
     // VARIABLES
 
-    private final InputStreamReader reader;
-    private final ITerminal terminal;
-    private final CharBuffer buffer;
+    private final InputStreamReader m_reader;
+    private final CharBuffer m_buffer;
 
     // CONSTRUCTORS
 
     /**
      * Creates a new {@link InputStreamWorker} instance.
      */
-    public InputStreamWorker( final InputStream aInputStream, ITerminal aTerminal ) throws IOException
+    public InputStreamWorker( final InputStream inputStream ) throws IOException
     {
-      this.reader = new InputStreamReader( aInputStream, "ISO8859-1" );
-      this.terminal = aTerminal;
-      this.buffer = new CharBuffer();
+      m_reader = new InputStreamReader( inputStream, ISO8859_1 );
+      m_buffer = new CharBuffer();
     }
 
     // METHODS
@@ -60,7 +84,7 @@ public class SwingFrontend extends JComponent implements ITerminalFrontend
     {
       while ( !isCancelled() && !Thread.currentThread().isInterrupted() )
       {
-        int r = this.reader.read();
+        int r = m_reader.read();
         if ( r > 0 )
         {
           publish( Integer.valueOf( r ) );
@@ -70,15 +94,15 @@ public class SwingFrontend extends JComponent implements ITerminalFrontend
     }
 
     @Override
-    protected void process( final List<Integer> aReadChars )
+    protected void process( final List<Integer> readChars )
     {
-      this.buffer.append( aReadChars );
+      m_buffer.append( readChars );
 
       try
       {
-        int n = this.terminal.readInput( this.buffer );
+        int n = m_terminal.read( m_buffer );
 
-        this.buffer.removeUntil( n );
+        m_buffer.removeUntil( n );
 
         repaint();
       }
@@ -89,86 +113,39 @@ public class SwingFrontend extends JComponent implements ITerminalFrontend
     }
   }
 
-  /**
-   * Provides a synchronous worker that takes data from the terminal backend and
-   * writes data to an outputstream.
-   */
-  final class OutputStreamWorker implements Closeable
-  {
-    // VARIABLES
-
-    private final OutputStreamWriter writer;
-
-    // CONSTRUCTORS
-
-    /**
-     * Creates a new {@link OutputStreamWorker} instance.
-     */
-    public OutputStreamWorker( final OutputStream aOutputStream ) throws IOException
-    {
-      this.writer = new OutputStreamWriter( aOutputStream, "ISO8859-1" );
-    }
-
-    // METHODS
-
-    @Override
-    public void close() throws IOException
-    {
-      try
-      {
-        this.writer.flush();
-      }
-      finally
-      {
-        this.writer.close();
-      }
-    }
-
-    public void write( final char... aData ) throws IOException
-    {
-      char[] data = aData;
-      this.writer.write( data );
-      this.writer.flush();
-    }
-
-    public void write( final String aData ) throws IOException
-    {
-      write( aData.toCharArray() );
-    }
-  }
-
   private class SendLiteralAction extends AbstractAction
   {
-    private final char[] chars;
+    private final String m_literal;
 
-    public SendLiteralAction( char... aChars )
+    public SendLiteralAction( String literal )
     {
-      this.chars = Arrays.copyOf( aChars, aChars.length );
+      m_literal = literal;
     }
 
     @Override
-    public void actionPerformed( ActionEvent aEvent )
+    public void actionPerformed( ActionEvent event )
     {
-      writeCharacters( this.chars );
+      writeCharacters( m_literal );
     }
   }
+
+  // CONSTANTS
+
+  /**
+   * The default encoding to use for the I/O with the outer world.
+   */
+  private static final String ISO8859_1 = "ISO8859-1";
 
   // VARIABLES
 
-  private ITerminalColorScheme colorScheme;
-
-  private int charWidth;
-  private int charHeight;
-  private int lineSpacing;
-
-  private ICursor oldCursor;
-
-  private volatile BufferedImage image;
-  private volatile boolean listening;
-
-  private volatile ITerminal terminal;
-  private volatile InputStreamWorker inputStreamWorker;
-  private volatile OutputStreamWorker outputStreamWorker;
+  private ITerminalColorScheme m_colorScheme;
+  private ICursor m_oldCursor;
+  private volatile CharacterDimensions m_charDims;
+  private volatile BufferedImage m_image;
+  private volatile boolean m_listening;
+  private ITerminal m_terminal;
+  private InputStreamWorker m_inputStreamWorker;
+  private Writer m_writer;
 
   // CONSTRUCTORS
 
@@ -182,35 +159,17 @@ public class SwingFrontend extends JComponent implements ITerminalFrontend
    */
   public SwingFrontend()
   {
-    this.colorScheme = new XtermColorScheme();
+    m_colorScheme = new XtermColorScheme();
 
     setFont( Font.decode( "Monospaced-PLAIN-14" ) );
 
-    enableEvents( AWTEvent.KEY_EVENT_MASK );
+    mapKeyboard();
 
     setEnabled( false );
     setFocusable( true );
     setFocusTraversalKeysEnabled( false ); // disables TAB handling
     requestFocus();
-
-    InputMap inputMap = getInputMap();
-    inputMap.put( KeyStroke.getKeyStroke( KeyEvent.VK_UP, 0 ), new SendLiteralAction( '\033', 'O', 'A' ) );
-    inputMap.put( KeyStroke.getKeyStroke( KeyEvent.VK_DOWN, 0 ), new SendLiteralAction( '\033', 'O', 'B' ) );
-    inputMap.put( KeyStroke.getKeyStroke( KeyEvent.VK_RIGHT, 0 ), new SendLiteralAction( '\033', 'O', 'C' ) );
-    inputMap.put( KeyStroke.getKeyStroke( KeyEvent.VK_LEFT, 0 ), new SendLiteralAction( '\033', 'O', 'D' ) );
-    inputMap.put( KeyStroke.getKeyStroke( KeyEvent.VK_F1, 0 ), new SendLiteralAction( '\033', 'O', 'P' ) );
-    inputMap.put( KeyStroke.getKeyStroke( KeyEvent.VK_F2, 0 ), new SendLiteralAction( '\033', 'O', 'Q' ) );
-    inputMap.put( KeyStroke.getKeyStroke( KeyEvent.VK_F3, 0 ), new SendLiteralAction( '\033', 'O', 'R' ) );
-    inputMap.put( KeyStroke.getKeyStroke( KeyEvent.VK_F4, 0 ), new SendLiteralAction( '\033', 'O', 'S' ) );
-    inputMap.put( KeyStroke.getKeyStroke( KeyEvent.VK_F5, 0 ), new SendLiteralAction( '\033', 'O', 't' ) );
-    inputMap.put( KeyStroke.getKeyStroke( KeyEvent.VK_F6, 0 ), new SendLiteralAction( '\033', 'O', 'u' ) );
-    inputMap.put( KeyStroke.getKeyStroke( KeyEvent.VK_F7, 0 ), new SendLiteralAction( '\033', 'O', 'v' ) );
-    inputMap.put( KeyStroke.getKeyStroke( KeyEvent.VK_F8, 0 ), new SendLiteralAction( '\033', 'O', 'I' ) );
-    inputMap.put( KeyStroke.getKeyStroke( KeyEvent.VK_F9, 0 ), new SendLiteralAction( '\033', 'O', 'w' ) );
-    inputMap.put( KeyStroke.getKeyStroke( KeyEvent.VK_F10, 0 ), new SendLiteralAction( '\033', 'O', 'x' ) );
   }
-
-  // METHODS
 
   /**
    * Calculates the character dimensions for the given font, which is presumed
@@ -222,7 +181,7 @@ public class SwingFrontend extends JComponent implements ITerminalFrontend
    * @return an array of length 2, containing the character width and height (in
    *         that order).
    */
-  private static int[] getCharacterDimensions( Font aFont )
+  private static CharacterDimensions getCharacterDimensions( Font aFont )
   {
     BufferedImage im = new BufferedImage( 1, 1, BufferedImage.TYPE_INT_ARGB );
 
@@ -235,27 +194,29 @@ public class SwingFrontend extends JComponent implements ITerminalFrontend
     int w = fm.charWidth( '@' );
     int h = fm.getAscent() + fm.getDescent();
 
-    return new int[] { w, h, fm.getLeading() + 1 };
+    return new CharacterDimensions( w, h, fm.getLeading() + 1 );
   }
+
+  // METHODS
 
   /**
    * Connects this frontend to a given input and output stream.
    * 
-   * @param aInputStream
+   * @param inputStream
    *          the input stream to connect to;
-   * @param aOutputStream
+   * @param outputStream
    *          the output stream to connect to.
    * @throws IOException
    *           in case of I/O problems.
    */
-  public void connect( InputStream aInputStream, OutputStream aOutputStream ) throws IOException
+  public void connect( InputStream inputStream, OutputStream outputStream ) throws IOException
   {
     disconnect();
 
-    this.inputStreamWorker = new InputStreamWorker( aInputStream, this.terminal );
-    this.outputStreamWorker = new OutputStreamWorker( aOutputStream );
+    m_writer = new OutputStreamWriter( outputStream, ISO8859_1 );
 
-    this.inputStreamWorker.execute();
+    m_inputStreamWorker = new InputStreamWorker( inputStream );
+    m_inputStreamWorker.execute();
 
     setEnabled( true );
   }
@@ -270,15 +231,15 @@ public class SwingFrontend extends JComponent implements ITerminalFrontend
   {
     try
     {
-      if ( this.inputStreamWorker != null )
+      if ( m_inputStreamWorker != null )
       {
-        this.inputStreamWorker.cancel( true /* mayInterruptIfRunning */);
-        this.inputStreamWorker = null;
+        m_inputStreamWorker.cancel( true /* mayInterruptIfRunning */);
+        m_inputStreamWorker = null;
       }
-      if ( this.outputStreamWorker != null )
+      if ( m_writer != null )
       {
-        this.outputStreamWorker.close();
-        this.outputStreamWorker = null;
+        m_writer.close();
+        m_writer = null;
       }
     }
     finally
@@ -286,7 +247,7 @@ public class SwingFrontend extends JComponent implements ITerminalFrontend
       setEnabled( false );
     }
   }
-  
+
   /**
    * {@inheritDoc}
    */
@@ -295,15 +256,26 @@ public class SwingFrontend extends JComponent implements ITerminalFrontend
   {
     Rectangle bounds = getGraphicsConfiguration().getBounds();
     Insets insets = calculateTotalInsets();
-    
+
     int width = bounds.width - insets.left - insets.right;
     int height = bounds.height - insets.top - insets.bottom;
 
+    CharacterDimensions charDims = m_charDims;
+
     // Calculate the maximum number of columns & lines...
-    int columns = width / this.charWidth;
-    int lines = height / ( this.charHeight + this.lineSpacing );
-    
+    int columns = width / charDims.m_width;
+    int lines = height / ( charDims.m_height + charDims.m_lineSpacing );
+
     return new Dimension( columns, lines );
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  @Override
+  public Writer getWriter()
+  {
+    return m_writer;
   }
 
   /**
@@ -312,22 +284,27 @@ public class SwingFrontend extends JComponent implements ITerminalFrontend
   @Override
   public boolean isListening()
   {
-    return this.listening;
+    return m_listening;
   }
 
   /**
    * {@inheritDoc}
    */
   @Override
-  public void setFont( Font aFont )
+  public void setFont( Font font )
   {
-    super.setFont( aFont );
+    super.setFont( font );
 
-    int[] cdims = getCharacterDimensions( aFont );
+    m_charDims = getCharacterDimensions( font );
+  }
 
-    this.charWidth = cdims[0];
-    this.charHeight = cdims[1];
-    this.lineSpacing = cdims[2];
+  /**
+   * @see nl.lxtreme.jvt220.terminal.ITerminalFrontend#setReverse(boolean)
+   */
+  @Override
+  public void setReverse( boolean reverse )
+  {
+    m_colorScheme.setInverted( reverse );
   }
 
   /**
@@ -336,30 +313,32 @@ public class SwingFrontend extends JComponent implements ITerminalFrontend
    * of columns and lines.
    */
   @Override
-  public void setSize( int aWidth, int aHeight )
+  public void setSize( int width, int height )
   {
     Rectangle bounds = getGraphicsConfiguration().getBounds();
     Insets insets = calculateTotalInsets();
 
-    if ( aWidth == 0 )
+    if ( width == 0 )
     {
-      aWidth = bounds.width - insets.left - insets.right;
+      width = bounds.width - insets.left - insets.right;
     }
-    else if ( aWidth < 0 )
+    else if ( width < 0 )
     {
-      aWidth = getWidth();
+      width = getWidth();
     }
-    if ( aHeight == 0 )
+    if ( height == 0 )
     {
-      aHeight = bounds.height - insets.top - insets.bottom;
+      height = bounds.height - insets.top - insets.bottom;
     }
-    else if ( aHeight < 0 )
+    else if ( height < 0 )
     {
-      aHeight = getHeight();
+      height = getHeight();
     }
 
-    int columns = aWidth / this.charWidth;
-    int lines = aHeight / ( this.charHeight + this.lineSpacing );
+    CharacterDimensions charDims = m_charDims;
+
+    int columns = width / charDims.m_width;
+    int lines = height / ( charDims.m_height + charDims.m_lineSpacing );
 
     terminalSizeChanged( columns, lines );
   }
@@ -368,65 +347,67 @@ public class SwingFrontend extends JComponent implements ITerminalFrontend
    * {@inheritDoc}
    */
   @Override
-  public void setTerminal( ITerminal aTerminal )
+  public void setTerminal( ITerminal terminal )
   {
-    if ( aTerminal == null )
+    if ( terminal == null )
     {
       throw new IllegalArgumentException( "Terminal cannot be null!" );
     }
-    this.terminal = aTerminal;
-    this.terminal.setFrontend( this );
+    m_terminal = terminal;
+    m_terminal.setFrontend( this );
   }
 
   /**
    * {@inheritDoc}
    */
   @Override
-  public void terminalChanged( ITextCell[] aCells, boolean[] aHeatMap )
+  public void terminalChanged( ITextCell[] cells, boolean[] heatMap )
   {
-    final int columns = this.terminal.getWidth();
-    final int lines = this.terminal.getHeight();
+    final int columns = m_terminal.getWidth();
+    final int lines = m_terminal.getHeight();
 
     // Create copies of these data items to ensure they remain constant for
     // the remainer of this method...
-    int cw = this.charWidth;
-    int ch = this.charHeight;
-    int ls = this.lineSpacing;
+    CharacterDimensions charDims = m_charDims;
 
-    if ( this.image == null )
+    int cw = charDims.m_width;
+    int ch = charDims.m_height;
+    int ls = charDims.m_lineSpacing;
+
+    if ( m_image == null )
     {
       // Ensure there's a valid image to paint on...
       terminalSizeChanged( columns, lines );
     }
 
-    final Graphics2D canvas = this.image.createGraphics();
+    final Graphics2D canvas = m_image.createGraphics();
     canvas.setFont( getFont() );
 
     final Font font = getFont();
     final FontMetrics fm = canvas.getFontMetrics();
-    final FontRenderContext frc = new FontRenderContext( null, false, true );
+    final FontRenderContext frc = new FontRenderContext( null, true /* aa */, true /* fractionalMetrics */);
 
-    if ( this.oldCursor != null )
+    if ( m_oldCursor != null )
     {
-      drawCursor( canvas, this.oldCursor, this.colorScheme.getBackgroundColor() );
+      drawCursor( canvas, m_oldCursor, m_colorScheme.getBackgroundColor() );
     }
 
     Color cursorColor = null;
-    Rectangle repaintArea = new Rectangle();
+    Rectangle repaintArea = null;
 
-    for ( int i = 0; i < aHeatMap.length; i++ )
+    for ( int i = 0; i < heatMap.length; i++ )
     {
-      if ( aHeatMap[i] )
+      if ( heatMap[i] )
       {
         // Cell is changed...
-        final ITextCell cell = aCells[i];
+        final ITextCell cell = cells[i];
 
         final int x = ( i % columns ) * cw;
         final int y = ( i / columns ) * ( ch + ls );
 
         final Rectangle rect = new Rectangle( x, y, cw, ch + ls );
 
-        canvas.setColor( convertToColor( cell.getBackground(), this.colorScheme.getBackgroundColor() ) );
+        canvas.setColor( convertToColor( cell.getBackground(), m_colorScheme.getBackgroundColor() ) );
         canvas.fillRect( rect.x, rect.y, rect.width, rect.height );
 
         final String txt = Character.toString( cell.getChar() );
@@ -443,23 +424,30 @@ public class SwingFrontend extends JComponent implements ITerminalFrontend
           textLayout.draw( canvas, x, y + fm.getAscent() );
         }
 
-        repaintArea = rect.intersection( repaintArea );
+        if ( repaintArea == null )
+        {
+          repaintArea = rect;
+        }
+        else
+        {
+          repaintArea = rect.intersection( repaintArea );
+        }
       }
     }
 
     // Draw the cursor...
-    this.oldCursor = this.terminal.getCursor().clone();
+    m_oldCursor = m_terminal.getCursor().clone();
     if ( cursorColor == null )
     {
-      cursorColor = this.colorScheme.getPlainTextColor();
+      cursorColor = m_colorScheme.getTextColor();
     }
 
-    drawCursor( canvas, this.oldCursor, cursorColor );
+    drawCursor( canvas, m_oldCursor, cursorColor );
 
     // Free the resources...
     canvas.dispose();
 
-    if ( !repaintArea.isEmpty() )
+    if ( ( repaintArea != null ) && !repaintArea.isEmpty() )
     {
       repaint( repaintArea );
     }
@@ -469,24 +457,24 @@ public class SwingFrontend extends JComponent implements ITerminalFrontend
    * {@inheritDoc}
    */
   @Override
-  public void terminalSizeChanged( int aColumns, int aLines )
+  public void terminalSizeChanged( int columns, int lines )
   {
-    final Dimension dims = calculateSizeInPixels( aColumns, aLines );
+    final Dimension dims = calculateSizeInPixels( columns, lines );
 
-    if ( ( this.image == null ) || ( this.image.getWidth() != dims.width ) || ( this.image.getHeight() != dims.height ) )
+    if ( ( m_image == null ) || ( m_image.getWidth() != dims.width ) || ( m_image.getHeight() != dims.height ) )
     {
-      if ( this.image != null )
+      if ( m_image != null )
       {
-        this.image.flush();
+        m_image.flush();
       }
-      this.image = getGraphicsConfiguration().createCompatibleImage( dims.width, dims.height );
+      m_image = getGraphicsConfiguration().createCompatibleImage( dims.width, dims.height );
 
-      Graphics2D canvas = this.image.createGraphics();
+      Graphics2D canvas = m_image.createGraphics();
 
       try
       {
-        canvas.setBackground( this.colorScheme.getBackgroundColor() );
-        canvas.clearRect( 0, 0, this.image.getWidth(), this.image.getHeight() );
+        canvas.setBackground( m_colorScheme.getBackgroundColor() );
+        canvas.clearRect( 0, 0, m_image.getWidth(), m_image.getHeight() );
       }
       finally
       {
@@ -503,22 +491,74 @@ public class SwingFrontend extends JComponent implements ITerminalFrontend
   }
 
   /**
+   * Maps the keyboard to respond to keys like 'up', 'down' and the function
+   * keys.
+   */
+  protected void mapKeyboard()
+  {
+    // TODO this mapping should come from the terminal!
+    createKeyMapping( KeyStroke.getKeyStroke( KeyEvent.VK_UP, 0 ), "\033[A" );
+    createKeyMapping( KeyStroke.getKeyStroke( KeyEvent.VK_DOWN, 0 ), "\033[B" );
+    createKeyMapping( KeyStroke.getKeyStroke( KeyEvent.VK_RIGHT, 0 ), "\033[C" );
+    createKeyMapping( KeyStroke.getKeyStroke( KeyEvent.VK_LEFT, 0 ), "\033[D" );
+
+    createKeyMapping( KeyStroke.getKeyStroke( KeyEvent.VK_HOME, 0 ), "\033[H" );
+    createKeyMapping( KeyStroke.getKeyStroke( KeyEvent.VK_END, 0 ), "\033[F" );
+
+    createKeyMapping( KeyStroke.getKeyStroke( KeyEvent.VK_F1, 0 ), "\033[OP" );
+    createKeyMapping( KeyStroke.getKeyStroke( KeyEvent.VK_F2, 0 ), "\033[OQ" );
+    createKeyMapping( KeyStroke.getKeyStroke( KeyEvent.VK_F3, 0 ), "\033[OR" );
+    createKeyMapping( KeyStroke.getKeyStroke( KeyEvent.VK_F4, 0 ), "\033[OS" );
+    createKeyMapping( KeyStroke.getKeyStroke( KeyEvent.VK_F5, 0 ), "\033[[15~" );
+    createKeyMapping( KeyStroke.getKeyStroke( KeyEvent.VK_F6, 0 ), "\033[[17~" );
+    createKeyMapping( KeyStroke.getKeyStroke( KeyEvent.VK_F7, 0 ), "\033[[18~" );
+    createKeyMapping( KeyStroke.getKeyStroke( KeyEvent.VK_F8, 0 ), "\033[[19~" );
+    createKeyMapping( KeyStroke.getKeyStroke( KeyEvent.VK_F9, 0 ), "\033[[20~" );
+    createKeyMapping( KeyStroke.getKeyStroke( KeyEvent.VK_F10, 0 ), "\033[[21~" );
+    createKeyMapping( KeyStroke.getKeyStroke( KeyEvent.VK_F11, 0 ), "\033[[23~" );
+    createKeyMapping( KeyStroke.getKeyStroke( KeyEvent.VK_F12, 0 ), "\033[[24~" );
+  }
+
+  /**
+   * Creates a key mapping for the given keystroke and the given action which is
+   * send as literal text to the terminal.
+   * 
+   * @param keystroke
+   *          the keystroke to map, cannot be <code>null</code>;
+   * @param action
+   *          the action to map the keystroke to, cannot be <code>null</code>.
+   */
+  protected void createKeyMapping( KeyStroke keystroke, String action )
+  {
+    InputMap inputMap = getInputMap( WHEN_ANCESTOR_OF_FOCUSED_COMPONENT );
+    inputMap.put( keystroke, action );
+
+    ActionMap actionMap = getActionMap();
+    actionMap.put( action, new SendLiteralAction( action ) );
+  }
+
+  /**
    * {@inheritDoc}
    */
   @Override
-  protected void paintComponent( Graphics aCanvas )
+  protected void paintComponent( Graphics canvas )
   {
-    this.listening = false;
+    m_listening = false;
+
+    canvas.setColor( m_colorScheme.getBackgroundColor() );
+
+    Rectangle clip = canvas.getClipBounds();
+    canvas.fillRect( clip.x, clip.y, clip.width, clip.height );
 
     try
     {
       Insets insets = getInsets();
 
-      aCanvas.drawImage( this.image, insets.left, insets.top, null /* observer */);
+      canvas.drawImage( m_image, insets.left, insets.top, null /* observer */);
     }
     finally
     {
-      this.listening = true;
+      m_listening = true;
     }
   }
 
@@ -526,26 +566,56 @@ public class SwingFrontend extends JComponent implements ITerminalFrontend
    * {@inheritDoc}
    */
   @Override
-  protected void processKeyEvent( KeyEvent aEvent )
+  protected void processKeyEvent( KeyEvent event )
   {
-    int id = aEvent.getID();
+    int id = event.getID();
     if ( id == KeyEvent.KEY_TYPED )
     {
-      writeCharacters( aEvent.getKeyChar() );
-      aEvent.consume();
+      writeCharacter( event.getKeyChar() );
+      event.consume();
     }
 
-    super.processKeyEvent( aEvent );
+    super.processKeyEvent( event );
   }
 
   /**
-   * @param aChars
+   * Writes a given number of characters to the terminal.
+   * 
+   * @param chars
+   *          the characters to write, cannot be <code>null</code>.
    */
-  protected void writeCharacters( char... aChars )
+  protected void writeCharacter( char ch )
   {
     try
     {
-      this.outputStreamWorker.write( aChars );
+      if ( m_writer != null )
+      {
+        m_writer.write( ch );
+        m_writer.flush();
+      }
+    }
+    catch ( IOException e )
+    {
+      // TODO Auto-generated catch block
+      e.printStackTrace();
+    }
+  }
+
+  /**
+   * Writes a given number of characters to the terminal.
+   * 
+   * @param chars
+   *          the characters to write, cannot be <code>null</code>.
+   */
+  protected void writeCharacters( String chars )
+  {
+    try
+    {
+      if ( m_writer != null )
+      {
+        m_writer.write( chars );
+        m_writer.flush();
+      }
     }
     catch ( IOException e )
     {
@@ -558,52 +628,54 @@ public class SwingFrontend extends JComponent implements ITerminalFrontend
    * Applies the attributes from the given {@link TextCell} to the given
    * {@link AttributedString}.
    * 
-   * @param aTextCell
+   * @param textCell
    *          the text cell to get the attributes from;
-   * @param aAttributedString
+   * @param attributedString
    *          the {@link AttributedString} to apply the attributes to;
-   * @param aFont
+   * @param font
    *          the font to use.
    * @return the primary foreground color, never <code>null</code>.
    */
-  private Color applyAttributes( ITextCell aTextCell, AttributedString aAttributedString, Font aFont )
+  private Color applyAttributes( ITextCell textCell, AttributedString attributedString, Font font )
   {
-    Color fg = convertToColor( aTextCell.getForeground(), this.colorScheme.getPlainTextColor() );
-    Color bg = convertToColor( aTextCell.getBackground(), this.colorScheme.getBackgroundColor() );
+    Color fg = convertToColor( textCell.getForeground(), m_colorScheme.getTextColor() );
+    Color bg = convertToColor( textCell.getBackground(), m_colorScheme.getBackgroundColor() );
 
-    aAttributedString.addAttribute( TextAttribute.FAMILY, aFont.getFamily() );
-    aAttributedString.addAttribute( TextAttribute.SIZE, aFont.getSize() );
-    aAttributedString.addAttribute( TextAttribute.FOREGROUND, aTextCell.isReverse() ^ aTextCell.isHidden() ? bg : fg );
-    aAttributedString.addAttribute( TextAttribute.BACKGROUND, aTextCell.isReverse() ? fg : bg );
+    attributedString.addAttribute( TextAttribute.FAMILY, font.getFamily() );
+    attributedString.addAttribute( TextAttribute.SIZE, font.getSize() );
+    attributedString.addAttribute( TextAttribute.FOREGROUND, textCell.isReverse() ^ textCell.isHidden() ? bg : fg );
+    attributedString.addAttribute( TextAttribute.BACKGROUND, textCell.isReverse() ? fg : bg );
 
-    if ( aTextCell.isUnderline() )
+    if ( textCell.isUnderline() )
     {
-      aAttributedString.addAttribute( TextAttribute.UNDERLINE, TextAttribute.UNDERLINE_ON );
+      attributedString.addAttribute( TextAttribute.UNDERLINE, TextAttribute.UNDERLINE_ON );
     }
-    if ( aTextCell.isBold() )
+    if ( textCell.isBold() )
     {
-      aAttributedString.addAttribute( TextAttribute.WEIGHT, TextAttribute.WEIGHT_BOLD );
+      attributedString.addAttribute( TextAttribute.WEIGHT, TextAttribute.WEIGHT_BOLD );
     }
-    if ( aTextCell.isItalic() )
+    if ( textCell.isItalic() )
     {
-      aAttributedString.addAttribute( TextAttribute.POSTURE, TextAttribute.POSTURE_OBLIQUE );
+      attributedString.addAttribute( TextAttribute.POSTURE, TextAttribute.POSTURE_OBLIQUE );
     }
-    return aTextCell.isReverse() ^ aTextCell.isHidden() ? bg : fg;
+    return textCell.isReverse() ^ textCell.isHidden() ? bg : fg;
   }
 
   /**
-   * Calculates the size (in pixels) of the backbuffer image.
+   * Calculates the size (in pixels) of the back buffer image.
    * 
-   * @param aColumns
+   * @param columns
    *          the number of columns, > 0;
-   * @param aLines
+   * @param lines
    *          the number of lines, > 0.
    * @return a dimension with the image width and height in pixels.
    */
-  private Dimension calculateSizeInPixels( int aColumns, int aLines )
+  private Dimension calculateSizeInPixels( int columns, int lines )
   {
-    int width = ( aColumns * this.charWidth );
-    int height = ( aLines * ( this.charHeight + this.lineSpacing ) );
+    CharacterDimensions charDims = m_charDims;
+
+    int width = ( columns * charDims.m_width );
+    int height = ( lines * ( charDims.m_height + charDims.m_lineSpacing ) );
     return new Dimension( width, height );
   }
 
@@ -632,38 +704,50 @@ public class SwingFrontend extends JComponent implements ITerminalFrontend
   }
 
   /**
-   * @param aIndex
-   * @param aDefaultColor
-   * @return
+   * Converts a given color index to a concrete color value.
+   * 
+   * @param index
+   *          the numeric color index, >= 0;
+   * @param defaultColor
+   *          the default color to use, cannot be <code>null</code>.
+   * @return a color value, never <code>null</code>.
    */
-  private Color convertToColor( int aIndex, Color aDefaultColor )
+  private Color convertToColor( int index, Color defaultColor )
   {
-    if ( aIndex < 1 )
+    if ( index < 1 )
     {
-      return aDefaultColor;
+      return defaultColor;
     }
-    return this.colorScheme.getColorByIndex( aIndex - 1 );
+    return m_colorScheme.getColorByIndex( index - 1 );
   }
 
   /**
-   * @param aCanvas
-   * @param aCursor
+   * Draws the cursor on screen.
+   * 
+   * @param canvas
+   *          the canvas to paint on;
+   * @param cursor
+   *          the cursor information;
+   * @param color
+   *          the color to paint the cursor in.
    */
-  private void drawCursor( final Graphics2D aCanvas, final ICursor aCursor, final Color aColor )
+  private void drawCursor( final Graphics canvas, final ICursor cursor, final Color color )
   {
-    if ( !aCursor.isVisible() )
+    if ( !cursor.isVisible() )
     {
       return;
     }
 
-    int cw = this.charWidth;
-    int ch = this.charHeight;
-    int ls = this.lineSpacing;
+    CharacterDimensions charDims = m_charDims;
 
-    int x = aCursor.getX() * cw;
-    int y = aCursor.getY() * ( ch + ls );
+    int cw = charDims.m_width;
+    int ch = charDims.m_height;
+    int ls = charDims.m_lineSpacing;
 
-    aCanvas.setColor( aColor );
-    aCanvas.drawRect( x, y, cw, ch - 2 * ls );
+    int x = cursor.getX() * cw;
+    int y = cursor.getY() * ( ch + ls );
+
+    canvas.setColor( color );
+    canvas.drawRect( x, y, cw, ch - 2 * ls );
   }
 }

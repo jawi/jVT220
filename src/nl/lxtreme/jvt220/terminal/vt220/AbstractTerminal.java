@@ -24,29 +24,41 @@ public abstract class AbstractTerminal implements ITerminal
    */
   protected class DefaultTabulator implements ITabulator
   {
+    // CONSTANTS
+
+    private static final int DEFAULT_TABSTOP = 8;
+
     // VARIABLES
 
-    private final SortedSet<Integer> tabStops;
+    private final SortedSet<Integer> m_tabStops;
 
     // CONSTRUCTORS
 
     /**
      * Creates a new {@link DefaultTabulator} instance.
+     * 
+     * @param columns
+     *          the number of colums, for example, 80.
      */
-    public DefaultTabulator( int aColumns )
+    public DefaultTabulator( int columns )
     {
-      this( aColumns, 8 );
+      this( columns, DEFAULT_TABSTOP );
     }
 
     /**
      * Creates a new {@link DefaultTabulator} instance.
+     * 
+     * @param columns
+     *          the number of colums, for example, 80;
+     * @param tabStop
+     *          the default tab stop to use, for example, 8.
      */
-    public DefaultTabulator( int aColumns, int aTabStop )
+    public DefaultTabulator( int columns, int tabStop )
     {
-      this.tabStops = new TreeSet<Integer>();
-      for ( int i = aTabStop; i < aColumns; i += aTabStop )
+      m_tabStops = new TreeSet<Integer>();
+      for ( int i = tabStop; i < columns; i += tabStop )
       {
-        this.tabStops.add( Integer.valueOf( i ) );
+        m_tabStops.add( Integer.valueOf( i ) );
       }
     }
 
@@ -56,9 +68,9 @@ public abstract class AbstractTerminal implements ITerminal
      * {@inheritDoc}
      */
     @Override
-    public void clear( int aPosition )
+    public void clear( int position )
     {
-      this.tabStops.remove( Integer.valueOf( aPosition ) );
+      m_tabStops.remove( Integer.valueOf( position ) );
     }
 
     /**
@@ -67,25 +79,25 @@ public abstract class AbstractTerminal implements ITerminal
     @Override
     public void clearAll()
     {
-      this.tabStops.clear();
+      m_tabStops.clear();
     }
 
     /**
      * {@inheritDoc}
      */
     @Override
-    public int getNextTabWidth( int aPosition )
+    public int getNextTabWidth( int position )
     {
-      return nextTab( aPosition ) - aPosition;
+      return nextTab( position ) - position;
     }
 
     /**
      * {@inheritDoc}
      */
     @Override
-    public int getPreviousTabWidth( int aPosition )
+    public int getPreviousTabWidth( int position )
     {
-      return aPosition - previousTab( aPosition );
+      return position - previousTab( position );
     }
 
     /**
@@ -93,19 +105,19 @@ public abstract class AbstractTerminal implements ITerminal
      */
     public SortedSet<Integer> getTabStops()
     {
-      return this.tabStops;
+      return m_tabStops;
     }
 
     /**
      * {@inheritDoc}
      */
     @Override
-    public int nextTab( int aPosition )
+    public int nextTab( int position )
     {
-      // Search for the first tab stop at or after the given position...
       int tabStop = Integer.MAX_VALUE;
 
-      SortedSet<Integer> tailSet = this.tabStops.tailSet( Integer.valueOf( aPosition + 1 ) );
+      // Search for the first tab stop after the given position...
+      SortedSet<Integer> tailSet = m_tabStops.tailSet( Integer.valueOf( position + 1 ) );
       if ( !tailSet.isEmpty() )
       {
         tabStop = tailSet.first();
@@ -119,12 +131,12 @@ public abstract class AbstractTerminal implements ITerminal
      * {@inheritDoc}
      */
     @Override
-    public int previousTab( int aPosition )
+    public int previousTab( int position )
     {
-      // Search for the first tab stop at or after the given position...
       int tabStop = 0;
 
-      SortedSet<Integer> headSet = this.tabStops.headSet( Integer.valueOf( aPosition ) );
+      // Search for the first tab stop before the given position...
+      SortedSet<Integer> headSet = m_tabStops.headSet( Integer.valueOf( position ) );
       if ( !headSet.isEmpty() )
       {
         tabStop = headSet.last();
@@ -138,9 +150,9 @@ public abstract class AbstractTerminal implements ITerminal
      * {@inheritDoc}
      */
     @Override
-    public void set( int aPosition )
+    public void set( int position )
     {
-      this.tabStops.add( Integer.valueOf( aPosition ) );
+      m_tabStops.add( Integer.valueOf( position ) );
     }
   }
 
@@ -159,53 +171,48 @@ public abstract class AbstractTerminal implements ITerminal
 
   // VARIABLES
 
-  private final OutputStream outputStream;
-  private final CursorImpl cursor;
-  private final ITabulator tabulator;
+  private final CursorImpl m_cursor;
+  private final ITabulator m_tabulator;
 
-  protected final BitSet options;
-  protected final TextAttributes textAttributes;
+  protected final BitSet m_options;
+  protected final TextAttributes m_textAttributes;
 
-  private volatile ITerminalFrontend frontend;
-  private volatile boolean[] heatMap;
-  private volatile TextCell[] buffer;
-  private volatile int width;
-  private volatile int height;
+  private volatile ITerminalFrontend m_frontend;
+  private volatile boolean[] m_heatMap;
+  private volatile TextCell[] m_buffer;
+  private volatile int m_width;
+  private volatile int m_height;
 
-  private int logLevel;
+  private int m_logLevel;
 
-  private int firstScrollLine;
-  private int lastScrollLine;
+  private int m_firstScrollLine;
+  private int m_lastScrollLine;
   /**
    * denotes that the last written character caused a wrap to the next line (if
    * AutoWrap is enabled).
    */
-  private boolean wrapped;
+  private boolean m_wrapped;
 
   // CONSTRUCTORS
 
   /**
    * Creates a new {@link AbstractTerminal} instance.
    * 
-   * @param aOutputStream
-   *          the output stream to write back to, cannot be <code>null</code>;
-   * @param aColumns
+   * @param columns
    *          the initial number of columns in this terminal, > 0;
-   * @param aLines
+   * @param lines
    *          the initial number of lines in this terminal, > 0.
    */
-  protected AbstractTerminal( final OutputStream aOutputStream, final int aColumns, final int aLines )
+  protected AbstractTerminal( final int columns, final int lines )
   {
-    this.outputStream = aOutputStream;
+    m_textAttributes = new TextAttributes();
+    m_cursor = new CursorImpl();
+    m_options = new BitSet();
+    m_tabulator = new DefaultTabulator( columns );
 
-    this.textAttributes = new TextAttributes();
-    this.cursor = new CursorImpl();
-    this.options = new BitSet();
-    this.tabulator = new DefaultTabulator( aColumns );
+    internalSetDimensions( columns, lines );
 
-    internalSetDimensions( aColumns, aLines );
-
-    this.logLevel = 3;
+    m_logLevel = 3;
   }
 
   // METHODS
@@ -213,18 +220,18 @@ public abstract class AbstractTerminal implements ITerminal
   /**
    * Clears the current line.
    * 
-   * @param aMode
+   * @param mode
    *          the clear modus: 0 = erase from cursor to right (default), 1 =
    *          erase from cursor to left, 2 = erase entire line.
    */
-  public void clearLine( final int aMode )
+  public void clearLine( final int mode )
   {
-    final int xPos = this.cursor.getX();
-    final int yPos = this.cursor.getY();
+    final int xPos = m_cursor.getX();
+    final int yPos = m_cursor.getY();
 
     int idx;
 
-    switch ( aMode )
+    switch ( mode )
     {
       case 0:
         // erase from cursor to end of line...
@@ -243,37 +250,32 @@ public abstract class AbstractTerminal implements ITerminal
         throw new IllegalArgumentException( "Invalid clear line mode!" );
     }
 
-    clearLine( aMode, idx, false /* aKeepProtectedCells */);
+    clearLine( mode, idx, false /* aKeepProtectedCells */);
   }
 
   /**
    * Clears the screen.
    * 
-   * @param aMode
+   * @param mode
    *          the clear modus: 0 = erase from cursor to below (default), 1 =
    *          erase from cursor to top, 2 = erase entire screen.
    */
-  public void clearScreen( final int aMode )
+  public void clearScreen( final int mode )
   {
-    final int xPos = this.cursor.getX();
-    final int yPos = this.cursor.getY();
+    final int xPos = m_cursor.getX();
+    final int yPos = m_cursor.getY();
 
-    clearScreen( aMode, getAbsoluteIndex( xPos, yPos ), false /* aKeepProtectedCells */);
+    clearScreen( mode, getAbsoluteIndex( xPos, yPos ), false /* aKeepProtectedCells */);
   }
 
   /**
-   * Returns the cell at the given X,Y-position.
-   * 
-   * @param aXpos
-   *          the X-position of the cell to retrieve;
-   * @param aYpos
-   *          the Y-position of the cell to retrieve.
-   * @return the text cell at the given X,Y-position, or <code>null</code> if
-   *         there is no such cell.
+   * {@inheritDoc}
    */
-  public final ITextCell getCellAt( final int aXpos, final int aYpos )
+  @Override
+  public void close() throws IOException
   {
-    return getCellAt( getAbsoluteIndex( aXpos, aYpos ) );
+    // TODO Auto-generated method stub
+
   }
 
   /**
@@ -282,7 +284,7 @@ public abstract class AbstractTerminal implements ITerminal
   @Override
   public ICursor getCursor()
   {
-    return this.cursor;
+    return m_cursor;
   }
 
   /**
@@ -298,7 +300,7 @@ public abstract class AbstractTerminal implements ITerminal
       // 0...
       return 0;
     }
-    return this.firstScrollLine;
+    return m_firstScrollLine;
   }
 
   /**
@@ -307,7 +309,7 @@ public abstract class AbstractTerminal implements ITerminal
   @Override
   public final ITerminalFrontend getFrontend()
   {
-    return this.frontend;
+    return m_frontend;
   }
 
   /**
@@ -316,7 +318,7 @@ public abstract class AbstractTerminal implements ITerminal
   @Override
   public int getHeight()
   {
-    return this.height;
+    return m_height;
   }
 
   /**
@@ -333,7 +335,7 @@ public abstract class AbstractTerminal implements ITerminal
       // the height of the screen minus one...
       return getHeight() - 1;
     }
-    return this.lastScrollLine;
+    return m_lastScrollLine;
   }
 
   /**
@@ -342,7 +344,7 @@ public abstract class AbstractTerminal implements ITerminal
   @Override
   public ITabulator getTabulator()
   {
-    return this.tabulator;
+    return m_tabulator;
   }
 
   /**
@@ -351,7 +353,7 @@ public abstract class AbstractTerminal implements ITerminal
   @Override
   public int getWidth()
   {
-    return this.width;
+    return m_width;
   }
 
   /**
@@ -368,7 +370,7 @@ public abstract class AbstractTerminal implements ITerminal
    */
   public final boolean isAutoNewlineMode()
   {
-    return this.options.get( OPTION_NEWLINE );
+    return m_options.get( OPTION_NEWLINE );
   }
 
   /**
@@ -380,7 +382,7 @@ public abstract class AbstractTerminal implements ITerminal
    */
   public final boolean isAutoWrapMode()
   {
-    return this.options.get( OPTION_AUTOWRAP );
+    return m_options.get( OPTION_AUTOWRAP );
   }
 
   /**
@@ -392,7 +394,7 @@ public abstract class AbstractTerminal implements ITerminal
    */
   public final boolean isInsertMode()
   {
-    return this.options.get( OPTION_INSERT );
+    return m_options.get( OPTION_INSERT );
   }
 
   /**
@@ -404,7 +406,7 @@ public abstract class AbstractTerminal implements ITerminal
    */
   public final boolean isOriginMode()
   {
-    return this.options.get( OPTION_ORIGIN );
+    return m_options.get( OPTION_ORIGIN );
   }
 
   /**
@@ -416,60 +418,60 @@ public abstract class AbstractTerminal implements ITerminal
    */
   public final boolean isReverseMode()
   {
-    return this.options.get( OPTION_REVERSE );
+    return m_options.get( OPTION_REVERSE );
   }
 
   /**
    * Moves the cursor to the given X,Y position.
    * 
-   * @param aXpos
+   * @param x
    *          the absolute X-position, zero-based (zero meaning start of current
    *          line). If -1, then the current X-position is unchanged.
-   * @param aYpos
+   * @param y
    *          the absolute Y-position, zero-based (zero meaning start of current
    *          screen). If -1, then the current Y-position is unchanged.
    */
-  public void moveCursorAbsolute( final int aXpos, final int aYpos )
+  public void moveCursorAbsolute( final int x, final int y )
   {
-    int xPos = aXpos;
+    int xPos = x;
     if ( xPos < 0 )
     {
-      xPos = this.cursor.getX();
+      xPos = m_cursor.getX();
     }
-    if ( xPos >= this.width )
+    if ( xPos >= m_width )
     {
-      xPos = this.width;
+      xPos = m_width;
     }
 
-    int yPos = aYpos;
+    int yPos = y;
     if ( yPos < 0 )
     {
-      yPos = this.cursor.getY();
+      yPos = m_cursor.getY();
     }
-    if ( yPos >= this.height )
+    if ( yPos >= m_height )
     {
-      yPos = this.height - 1;
+      yPos = m_height - 1;
     }
 
-    this.cursor.setPosition( xPos, yPos );
+    m_cursor.setPosition( xPos, yPos );
   }
 
   /**
    * Moves the cursor relatively to the given X,Y position.
    * 
-   * @param aXpos
+   * @param x
    *          the relative X-position to move. If > 0, then move to the right;
    *          if 0, then the X-position is unchanged; if < 0, then move to the
    *          left;
-   * @param aYpos
+   * @param y
    *          the relative Y-position to move. If > 0, then move to the bottom;
    *          if 0, then the Y-position is unchanged; if < 0, then move to the
    *          top.
    */
-  public void moveCursorRelative( final int aXpos, final int aYpos )
+  public void moveCursorRelative( final int x, final int y )
   {
-    int xPos = Math.max( 0, this.cursor.getX() + aXpos );
-    int yPos = Math.max( 0, this.cursor.getY() + aYpos );
+    int xPos = Math.max( 0, m_cursor.getX() + x );
+    int yPos = Math.max( 0, m_cursor.getY() + y );
 
     moveCursorAbsolute( xPos, yPos );
   }
@@ -478,18 +480,18 @@ public abstract class AbstractTerminal implements ITerminal
    * {@inheritDoc}
    */
   @Override
-  public final int readInput( CharSequence aChars ) throws IOException
+  public final int read( CharSequence chars ) throws IOException
   {
-    int r = doReadInput( aChars );
+    int r = doReadInput( chars );
 
-    if ( this.frontend != null && this.frontend.isListening() )
+    if ( m_frontend != null && m_frontend.isListening() )
     {
-      TextCell[] b = this.buffer.clone();
-      boolean[] hm = this.heatMap.clone();
+      TextCell[] b = m_buffer.clone();
+      boolean[] hm = m_heatMap.clone();
 
-      this.frontend.terminalChanged( b, hm );
+      m_frontend.terminalChanged( b, hm );
 
-      Arrays.fill( this.heatMap, false );
+      Arrays.fill( m_heatMap, false );
     }
 
     return r;
@@ -506,149 +508,155 @@ public abstract class AbstractTerminal implements ITerminal
     // Move cursor to the first (upper left) position...
     updateCursorByAbsoluteIndex( getFirstAbsoluteIndex() );
     // Reset scroll region...
-    this.firstScrollLine = 0;
-    this.lastScrollLine = getHeight() - 1;
+    m_firstScrollLine = 0;
+    m_lastScrollLine = getHeight() - 1;
   }
 
   /**
-   * Scrolls all lines a given number down.
+   * Scrolls a given number of lines down, inserting empty lines at the top of
+   * the scrolling region. The contents of the lines scrolled off the screen are
+   * lost.
    * 
-   * @param aLines
+   * @param lines
    *          the number of lines to scroll down, > 0.
+   * @see #setScrollRegion(int, int)
    */
-  public void scrollDown( final int aLines )
+  public void scrollDown( final int lines )
   {
-    if ( aLines < 1 )
+    if ( lines < 1 )
     {
       throw new IllegalArgumentException( "Invalid number of lines!" );
     }
 
-    int region = ( this.lastScrollLine - this.firstScrollLine + 1 );
-    int n = Math.min( aLines, region );
+    int region = ( m_lastScrollLine - m_firstScrollLine + 1 );
+    int n = Math.min( lines, region );
     int width = getWidth();
 
-    int srcPos = this.firstScrollLine * width;
-    int destPos = ( n + this.firstScrollLine ) * width;
-    int length = ( this.lastScrollLine + 1 ) * width - destPos;
+    int srcPos = m_firstScrollLine * width;
+    int destPos = ( n + m_firstScrollLine ) * width;
+    int length = ( m_lastScrollLine + 1 ) * width - destPos;
 
     if ( length > 0 )
     {
-      System.arraycopy( this.buffer, srcPos, this.buffer, destPos, length );
+      System.arraycopy( m_buffer, srcPos, m_buffer, destPos, length );
     }
 
-    Arrays.fill( this.buffer, srcPos, destPos, new TextCell( ' ', getAttributes() ) );
+    Arrays.fill( m_buffer, srcPos, destPos, new TextCell( ' ', getAttributes() ) );
     // Update the heat map...
-    Arrays.fill( this.heatMap, true );
+    Arrays.fill( m_heatMap, true );
   }
 
   /**
-   * Scrolls all lines a given number up.
+   * Scrolls a given number of lines up, inserting empty lines at the bottom of
+   * the scrolling region. The contents of the lines scrolled off the screen are
+   * lost.
    * 
-   * @param aLines
+   * @param lines
    *          the number of lines to scroll up, > 0.
+   * @see #setScrollRegion(int, int)
    */
-  public void scrollUp( final int aLines )
+  public void scrollUp( final int lines )
   {
-    if ( aLines < 1 )
+    if ( lines < 1 )
     {
       throw new IllegalArgumentException( "Invalid number of lines!" );
     }
 
-    int region = ( this.lastScrollLine - this.firstScrollLine + 1 );
-    int n = Math.min( aLines, region );
+    int region = ( m_lastScrollLine - m_firstScrollLine + 1 );
+    int n = Math.min( lines, region );
     int width = getWidth();
 
-    int srcPos = ( n + this.firstScrollLine ) * width;
-    int destPos = this.firstScrollLine * width;
-    int lastPos = ( this.lastScrollLine + 1 ) * width;
+    int srcPos = ( n + m_firstScrollLine ) * width;
+    int destPos = m_firstScrollLine * width;
+    int lastPos = ( m_lastScrollLine + 1 ) * width;
     int length = lastPos - srcPos;
 
     if ( length > 0 )
     {
-      System.arraycopy( this.buffer, srcPos, this.buffer, destPos, length );
+      System.arraycopy( m_buffer, srcPos, m_buffer, destPos, length );
     }
-    Arrays.fill( this.buffer, destPos + length, srcPos + length, new TextCell( ' ', getAttributes() ) );
+    Arrays.fill( m_buffer, destPos + length, srcPos + length, new TextCell( ' ', getAttributes() ) );
     // Update the heat map...
-    Arrays.fill( this.heatMap, true );
+    Arrays.fill( m_heatMap, true );
   }
 
   /**
    * Enables or disables the auto-newline mode.
    * 
-   * @param aEnable
+   * @param enable
    *          <code>true</code> to enable auto-newline mode, <code>false</code>
    *          to disable it.
    */
-  public void setAutoNewlineMode( boolean aEnable )
+  public void setAutoNewlineMode( boolean enable )
   {
-    this.options.set( OPTION_NEWLINE, aEnable );
+    m_options.set( OPTION_NEWLINE, enable );
   }
 
   /**
    * Enables or disables the auto-wrap mode.
    * 
-   * @param aEnable
+   * @param enable
    *          <code>true</code> to enable auto-wrap mode, <code>false</code> to
    *          disable it.
    */
-  public void setAutoWrap( boolean aEnable )
+  public void setAutoWrap( boolean enable )
   {
-    this.options.set( OPTION_AUTOWRAP, aEnable );
+    m_options.set( OPTION_AUTOWRAP, enable );
   }
 
   /**
    * Sets the dimensions of this terminal to the given width and height.
    * 
-   * @param aNewWidth
+   * @param newWidth
    *          the new width of this terminal, in columns. If <= 0, then the
    *          current width will be used;
-   * @param aNewHeight
+   * @param newHeight
    *          the new height of this terminal, in lines. If <= 0, then the
    *          current height will be used.
    */
-  public void setDimensions( int aNewWidth, int aNewHeight )
+  public void setDimensions( int newWidth, int newHeight )
   {
-    if ( aNewWidth <= 0 )
+    if ( newWidth <= 0 )
     {
-      aNewWidth = this.width;
+      newWidth = m_width;
     }
-    if ( aNewHeight <= 0 )
+    if ( newHeight <= 0 )
     {
-      aNewHeight = this.height;
+      newHeight = m_height;
     }
 
-    if ( ( aNewWidth == this.width ) && ( aNewHeight == this.height ) )
+    if ( ( newWidth == m_width ) && ( newHeight == m_height ) )
     {
       // Nothing to do...
       return;
     }
 
-    internalSetDimensions( aNewWidth, aNewHeight );
+    internalSetDimensions( newWidth, newHeight );
   }
 
   /**
    * {@inheritDoc}
    */
   @Override
-  public void setFrontend( ITerminalFrontend aFrontend )
+  public void setFrontend( ITerminalFrontend frontend )
   {
-    if ( aFrontend == null )
+    if ( frontend == null )
     {
       throw new IllegalArgumentException( "Frontend cannot be null!" );
     }
-    this.frontend = aFrontend;
+    m_frontend = frontend;
   }
 
   /**
    * Enables or disables the insert mode.
    * 
-   * @param aEnable
+   * @param enable
    *          <code>true</code> to enable insert mode, <code>false</code> to
    *          disable it.
    */
-  public void setInsertMode( boolean aEnable )
+  public void setInsertMode( boolean enable )
   {
-    this.options.set( OPTION_INSERT, aEnable );
+    m_options.set( OPTION_INSERT, enable );
   }
 
   /**
@@ -657,7 +665,7 @@ public abstract class AbstractTerminal implements ITerminal
    */
   public void setLogLevel( int logLevel )
   {
-    this.logLevel = logLevel;
+    m_logLevel = logLevel;
   }
 
   /**
@@ -667,50 +675,55 @@ public abstract class AbstractTerminal implements ITerminal
    * left corner of the scrolling region.
    * </p>
    * 
-   * @param aEnable
+   * @param enable
    *          <code>true</code> to enable origin mode, <code>false</code> to
    *          disable it.
    * @see #setScrollRegion(int, int)
    */
-  public void setOriginMode( boolean aEnable )
+  public void setOriginMode( boolean enable )
   {
-    this.options.set( OPTION_ORIGIN, aEnable );
+    m_options.set( OPTION_ORIGIN, enable );
   }
 
   /**
    * Enables or disables the reverse mode.
    * 
-   * @param aEnable
+   * @param enable
    *          <code>true</code> to enable reverse mode, <code>false</code> to
    *          disable it.
    */
-  public void setReverse( boolean aEnable )
+  public void setReverse( boolean enable )
   {
-    this.options.set( OPTION_REVERSE, aEnable );
+    m_options.set( OPTION_REVERSE, enable );
+
+    if ( m_frontend != null )
+    {
+      m_frontend.setReverse( enable );
+    }
   }
 
   /**
    * Sets the scrolling region. By default the entire screen is set as scrolling
    * region.
    * 
-   * @param aTopIndex
+   * @param topIndex
    *          the top line that will be scrolled, >= 0;
-   * @param aBottomIndex
+   * @param bottomIndex
    *          the bottom line that will be scrolled, >= aTopIndex.
    */
-  public void setScrollRegion( final int aTopIndex, final int aBottomIndex )
+  public void setScrollRegion( final int topIndex, final int bottomIndex )
   {
-    if ( aTopIndex < 0 )
+    if ( topIndex < 0 )
     {
       throw new IllegalArgumentException( "TopIndex cannot be negative!" );
     }
-    if ( aBottomIndex <= aTopIndex )
+    if ( bottomIndex <= topIndex )
     {
       throw new IllegalArgumentException( "BottomIndex cannot be equal or less than TopIndex!" );
     }
 
-    this.firstScrollLine = Math.max( 0, aTopIndex );
-    this.lastScrollLine = Math.min( getHeight() - 1, aBottomIndex );
+    m_firstScrollLine = Math.max( 0, topIndex );
+    m_lastScrollLine = Math.min( getHeight() - 1, bottomIndex );
   }
 
   /**
@@ -736,14 +749,19 @@ public abstract class AbstractTerminal implements ITerminal
    * {@inheritDoc}
    */
   @Override
-  public int writeResponse( CharSequence aChars ) throws IOException
+  public int write( CharSequence response ) throws IOException
   {
-    int length = aChars.length();
-    for ( int i = 0; i < length; i++ )
+    int length = 0;
+
+    final Writer w = getWriter();
+    if ( ( response != null ) && ( w != null ) )
     {
-      this.outputStream.write( aChars.charAt( i ) );
+      w.write( response.toString() );
+      w.flush();
+
+      length = response.length();
     }
-    this.outputStream.flush();
+
     return length;
   }
 
@@ -758,36 +776,40 @@ public abstract class AbstractTerminal implements ITerminal
   /**
    * Clears the line using the given absolute index as cursor position.
    * 
-   * @param aMode
+   * @param mode
    *          the clear modus: 0 = erase from cursor to right (default), 1 =
    *          erase from cursor to left, 2 = erase entire line.
-   * @param aAbsoluteIndex
-   *          the absolute index of the cursor.
+   * @param absoluteIndex
+   *          the absolute index of the cursor;
+   * @param keepProtectedCells
+   *          <code>true</code> to honor the 'protected' option in text cells
+   *          leaving those cells as-is, <code>false</code> to disregard this
+   *          option and clear all text cells.
    */
-  protected final void clearLine( final int aMode, final int aAbsoluteIndex, final boolean aKeepProtectedCells )
+  protected final void clearLine( final int mode, final int absoluteIndex, final boolean keepProtectedCells )
   {
     int width = getWidth();
-    int yPos = ( int )Math.floor( aAbsoluteIndex / width );
-    int xPos = aAbsoluteIndex - ( yPos * width );
+    int yPos = ( int )Math.floor( absoluteIndex / width );
+    int xPos = absoluteIndex - ( yPos * width );
 
     int idx;
     int length;
 
-    switch ( aMode )
+    switch ( mode )
     {
       case 0:
         // erase from cursor to end of line...
-        idx = aAbsoluteIndex;
+        idx = absoluteIndex;
         length = width - xPos;
         break;
       case 1:
         // erase from cursor to start of line...
-        idx = aAbsoluteIndex - xPos;
+        idx = absoluteIndex - xPos;
         length = xPos + 1;
         break;
       case 2:
         // erase entire line...
-        idx = aAbsoluteIndex - xPos;
+        idx = absoluteIndex - xPos;
         length = width;
         break;
 
@@ -797,56 +819,60 @@ public abstract class AbstractTerminal implements ITerminal
 
     for ( int i = 0; i < length; i++ )
     {
-      removeChar( idx++, aKeepProtectedCells );
+      removeChar( idx++, keepProtectedCells );
     }
   }
 
   /**
    * Clears the screen using the given absolute index as cursor position.
    * 
-   * @param aMode
+   * @param mode
    *          the clear modus: 0 = erase from cursor to below (default), 1 =
    *          erase from cursor to top, 2 = erase entire screen.
-   * @param aAbsoluteIndex
-   *          the absolute index of the cursor.
+   * @param absoluteIndex
+   *          the absolute index of the cursor;
+   * @param keepProtectedCells
+   *          <code>true</code> to honor the 'protected' option in text cells
+   *          leaving those cells as-is, <code>false</code> to disregard this
+   *          option and clear all text cells.
    */
-  protected final void clearScreen( final int aMode, final int aAbsoluteIndex, final boolean aKeepProtectedCells )
+  protected final void clearScreen( final int mode, final int absoluteIndex, final boolean keepProtectedCells )
   {
-    switch ( aMode )
+    switch ( mode )
     {
       case 0:
         // erase from cursor to end of screen...
         int lastIdx = getLastAbsoluteIndex();
-        for ( int i = aAbsoluteIndex; i <= lastIdx; i++ )
+        for ( int i = absoluteIndex; i <= lastIdx; i++ )
         {
-          removeChar( i, aKeepProtectedCells );
+          removeChar( i, keepProtectedCells );
         }
         break;
       case 1:
         // erase from cursor to start of screen...
         int firstIdx = getFirstAbsoluteIndex();
-        for ( int i = firstIdx; i <= aAbsoluteIndex; i++ )
+        for ( int i = firstIdx; i <= absoluteIndex; i++ )
         {
-          removeChar( i, aKeepProtectedCells );
+          removeChar( i, keepProtectedCells );
         }
         break;
       case 2:
         // erase entire screen...
-        if ( aKeepProtectedCells )
+        if ( keepProtectedCells )
         {
           // Be selective in what we remove...
           for ( int i = getFirstAbsoluteIndex(), last = getLastAbsoluteIndex(); i <= last; i++ )
           {
-            removeChar( i, aKeepProtectedCells );
+            removeChar( i, keepProtectedCells );
           }
         }
         else
         {
           // Don't be selective in what we remove...
-          Arrays.fill( this.buffer, getFirstAbsoluteIndex(), getLastAbsoluteIndex() + 1, new TextCell( ' ',
+          Arrays.fill( m_buffer, getFirstAbsoluteIndex(), getLastAbsoluteIndex() + 1, new TextCell( ' ',
               getAttributes() ) );
           // Update the heat map...
-          Arrays.fill( this.heatMap, true );
+          Arrays.fill( m_heatMap, true );
         }
         break;
 
@@ -860,37 +886,37 @@ public abstract class AbstractTerminal implements ITerminal
    * the remaining characters on that line to the left, inserting spaces at the
    * end of the line.
    * 
-   * @param aAbsoluteIndex
+   * @param absoluteIndex
    *          the absolute index to delete the character at;
-   * @param aCount
+   * @param count
    *          the number of times to insert the given character, > 0.
    * @return the next index.
    */
-  protected final int deleteChars( final int aAbsoluteIndex, final int aCount )
+  protected final int deleteChars( final int absoluteIndex, final int count )
   {
-    int col = ( aAbsoluteIndex % getWidth() );
-    int length = Math.max( 0, getWidth() - col - aCount );
+    int col = ( absoluteIndex % getWidth() );
+    int length = Math.max( 0, getWidth() - col - count );
 
     // Make room for the new characters at the end...
-    System.arraycopy( this.buffer, aAbsoluteIndex + aCount, this.buffer, aAbsoluteIndex, length );
+    System.arraycopy( m_buffer, absoluteIndex + count, m_buffer, absoluteIndex, length );
 
     // Fill the created room with the character to insert...
-    int startIdx = aAbsoluteIndex + length;
-    int endIdx = aAbsoluteIndex + getWidth() - col;
-    Arrays.fill( this.buffer, startIdx, endIdx, new TextCell( ' ', getAttributes() ) );
+    int startIdx = absoluteIndex + length;
+    int endIdx = absoluteIndex + getWidth() - col;
+    Arrays.fill( m_buffer, startIdx, endIdx, new TextCell( ' ', getAttributes() ) );
 
     // Update the heat map...
-    Arrays.fill( this.heatMap, aAbsoluteIndex, endIdx, true );
+    Arrays.fill( m_heatMap, absoluteIndex, endIdx, true );
 
-    return aAbsoluteIndex;
+    return absoluteIndex;
   }
 
   /**
-   * Provides the actual implementation for {@link #readInput(CharSequence)}.
+   * Provides the actual implementation for {@link #read(CharSequence)}.
    * 
-   * @see {@link #readInput(CharSequence)}
+   * @see {@link #read(CharSequence)}
    */
-  protected abstract int doReadInput( CharSequence aChars ) throws IOException;
+  protected abstract int doReadInput( CharSequence chars ) throws IOException;
 
   /**
    * Returns the absolute index according to the current cursor position.
@@ -899,21 +925,21 @@ public abstract class AbstractTerminal implements ITerminal
    */
   protected final int getAbsoluteCursorIndex()
   {
-    return getAbsoluteIndex( this.cursor.getX(), this.cursor.getY() );
+    return getAbsoluteIndex( m_cursor.getX(), m_cursor.getY() );
   }
 
   /**
    * Returns the absolute index according to the given X,Y-position.
    * 
-   * @param aXpos
+   * @param x
    *          the X-position;
-   * @param aYpos
+   * @param y
    *          the Y-position.
    * @return an absolute index of the cursor position, >= 0.
    */
-  protected final int getAbsoluteIndex( final int aXpos, final int aYpos )
+  protected final int getAbsoluteIndex( final int x, final int y )
   {
-    return ( aYpos * getWidth() ) + aXpos;
+    return ( y * getWidth() ) + x;
   }
 
   /**
@@ -921,20 +947,35 @@ public abstract class AbstractTerminal implements ITerminal
    */
   protected final short getAttributes()
   {
-    return this.textAttributes.getAttributes();
+    return m_textAttributes.getAttributes();
   }
 
   /**
    * Returns the cell at the given absolute index.
    * 
-   * @param aAbsoluteIndex
+   * @param absoluteIndex
    *          the absolute of the cell to retrieve.
    * @return the text cell at the given index, can be <code>null</code> if no
    *         cell is defined.
    */
-  protected final ITextCell getCellAt( final int aAbsoluteIndex )
+  protected final ITextCell getCellAt( final int absoluteIndex )
   {
-    return this.buffer[aAbsoluteIndex];
+    return m_buffer[absoluteIndex];
+  }
+
+  /**
+   * Returns the cell at the given X,Y-position.
+   * 
+   * @param x
+   *          the X-position of the cell to retrieve;
+   * @param y
+   *          the Y-position of the cell to retrieve.
+   * @return the text cell at the given X,Y-position, or <code>null</code> if
+   *         there is no such cell.
+   */
+  protected final ITextCell getCellAt( final int x, final int y )
+  {
+    return getCellAt( getAbsoluteIndex( x, y ) );
   }
 
   /**
@@ -958,29 +999,29 @@ public abstract class AbstractTerminal implements ITerminal
    * remaining characters on that line to the right (possibly shifting text of
    * the line).
    * 
-   * @param aAbsoluteIndex
+   * @param absoluteIndex
    *          the absolute index to insert the character at;
-   * @param aChar
+   * @param ch
    *          the character to insert;
-   * @param aCount
+   * @param count
    *          the number of times to insert the given character, > 0.
    * @return the next index.
    */
-  protected final int insertChars( final int aAbsoluteIndex, final char aChar, final int aCount )
+  protected final int insertChars( final int absoluteIndex, final char ch, final int count )
   {
-    int col = aAbsoluteIndex % getWidth();
-    int length = getWidth() - col - aCount;
+    int col = absoluteIndex % getWidth();
+    int length = getWidth() - col - count;
 
     // Make room for the new characters...
-    System.arraycopy( this.buffer, aAbsoluteIndex, this.buffer, aAbsoluteIndex + aCount, length );
+    System.arraycopy( m_buffer, absoluteIndex, m_buffer, absoluteIndex + count, length );
 
     // Fill the created room with the character to insert...
-    Arrays.fill( this.buffer, aAbsoluteIndex, aAbsoluteIndex + aCount, new TextCell( aChar, getAttributes() ) );
+    Arrays.fill( m_buffer, absoluteIndex, absoluteIndex + count, new TextCell( ch, getAttributes() ) );
 
     // Update the heat map...
-    Arrays.fill( this.heatMap, aAbsoluteIndex, aAbsoluteIndex + aCount, true );
+    Arrays.fill( m_heatMap, absoluteIndex, absoluteIndex + count, true );
 
-    return aAbsoluteIndex;
+    return absoluteIndex;
   }
 
   /**
@@ -989,100 +1030,39 @@ public abstract class AbstractTerminal implements ITerminal
    */
   protected final boolean isWrapped()
   {
-    return this.wrapped;
-  }
-
-  /**
-   * Logs the writing of the given character at the given index, at loglevel 2
-   * or higher.
-   * 
-   * @param aChar
-   * @param aIndex
-   */
-  protected final void log( char aChar, char aMappedChar, int aIndex )
-  {
-    if ( this.logLevel < 2 )
-    {
-      return;
-    }
-
-    System.out.printf( "LOG> (%4d)", aIndex );
-    if ( aChar >= ' ' && aChar <= '~' )
-    {
-      System.out.printf( "[%c]", aChar );
-    }
-    else
-    {
-      System.out.printf( "<%d>", ( int )aChar );
-    }
-    if ( aChar != aMappedChar )
-    {
-      System.out.printf( " => [%c]", aMappedChar );
-    }
-    System.out.printf( "%n" );
-  }
-
-  /**
-   * Logs the character sequence at the given starting and ending index, at
-   * loglevel 1 or higher.
-   * 
-   * @param aText
-   * @param aStart
-   * @param aEnd
-   * @throws IOException
-   */
-  protected final void log( CharSequence aText, int aStart, int aEnd )
-  {
-    if ( this.logLevel < 1 )
-    {
-      return;
-    }
-
-    System.out.printf( "LOG> " );
-    for ( int i = aStart; i <= aEnd; i++ )
-    {
-      char c = aText.charAt( i );
-      if ( c >= ' ' && c <= '~' )
-      {
-        System.out.printf( "%c ", c );
-      }
-      else
-      {
-        System.out.printf( "<%d> ", ( int )c );
-      }
-    }
-    System.out.printf( "%n" );
+    return m_wrapped;
   }
 
   /**
    * Logs the given text verbatimely at loglevel 0 or higher.
    * 
-   * @param aText
+   * @param text
+   *          the text to log, cannot be <code>null</code>.
    */
-  protected final void log( String aText )
+  protected final void log( String text )
   {
-    if ( this.logLevel < 0 )
+    if ( m_logLevel < 0 )
     {
       return;
     }
 
-    System.out.printf( "LOG> %s%n", aText );
+    System.out.printf( "LOG> %s%n", text );
   }
 
   /**
    * Removes the character at the absolute index.
    * 
-   * @param aAbsoluteIndex
+   * @param absoluteIndex
    *          the index on which to remove the character, >= 0;
-   * @param aKeepProtectedCells
+   * @param keepProtectedCells
    *          <code>true</code> to honor the 'protected' bit of text cells and
    *          leave the text cell unchanged, <code>false</code> to ignore this
    *          bit and clear the text cell anyways.
    * @return the absolute index on which the character was removed.
    */
-  protected final int removeChar( final int aAbsoluteIndex, final boolean aKeepProtectedCells )
+  protected final int removeChar( final int absoluteIndex, final boolean keepProtectedCells )
   {
-    int idx = aAbsoluteIndex;
+    int idx = absoluteIndex;
     int firstIdx = getFirstAbsoluteIndex();
     if ( idx < firstIdx )
     {
@@ -1095,10 +1075,10 @@ public abstract class AbstractTerminal implements ITerminal
 
     // Clear the character at the given position, using the most current
     // attributes...
-    if ( !( aKeepProtectedCells && this.buffer[idx].isProtected() ) )
+    if ( !( keepProtectedCells && m_buffer[idx].isProtected() ) )
     {
-      this.buffer[idx] = new TextCell( ' ', getAttributes() );
-      this.heatMap[idx] = true;
+      m_buffer[idx] = new TextCell( ' ', getAttributes() );
+      m_heatMap[idx] = true;
     }
 
     return idx;
@@ -1109,38 +1089,38 @@ public abstract class AbstractTerminal implements ITerminal
    */
   protected final void resetWrapped()
   {
-    this.wrapped = false;
+    m_wrapped = false;
   }
 
   /**
    * Updates the cursor according to the given absolute index.
    * 
-   * @param aIndex
+   * @param absoluteIndex
    *          the absolute index to convert back to a X,Y-position.
    */
-  protected final void updateCursorByAbsoluteIndex( final int aIndex )
+  protected final void updateCursorByAbsoluteIndex( final int absoluteIndex )
   {
     int width = getWidth();
-    int yPos = ( int )Math.floor( aIndex / width );
-    int xPos = aIndex - ( yPos * width );
-    this.cursor.setPosition( xPos, yPos );
+    int yPos = ( int )Math.floor( absoluteIndex / width );
+    int xPos = absoluteIndex - ( yPos * width );
+    m_cursor.setPosition( xPos, yPos );
   }
 
   /**
    * Writes a given character at the absolute index, scrolling the screen up if
    * beyond the last index is written.
    * 
-   * @param aAbsoluteIndex
+   * @param absoluteIndex
    *          the index on which to write the given char, >= 0;
-   * @param aChar
+   * @param ch
    *          the character to write;
    * @param aAttributes
    *          the attributes to use to write the character.
    * @return the absolute index after which the character was written.
    */
-  protected final int writeChar( final int aAbsoluteIndex, final char aChar )
+  protected final int writeChar( final int absoluteIndex, final char ch )
   {
-    int idx = aAbsoluteIndex;
+    int idx = absoluteIndex;
     int lastIdx = getAbsoluteIndex( getWidth() - 1, getLastScrollLine() );
     int width = getWidth();
 
@@ -1152,13 +1132,13 @@ public abstract class AbstractTerminal implements ITerminal
 
     if ( idx <= lastIdx )
     {
-      this.buffer[idx] = new TextCell( aChar, getAttributes() );
-      this.heatMap[idx] = true;
+      m_buffer[idx] = new TextCell( ch, getAttributes() );
+      m_heatMap[idx] = true;
     }
 
     // determine new absolute index...
     boolean lastColumn = ( ( idx % width ) == ( width - 1 ) );
-    this.wrapped = ( isAutoWrapMode() && lastColumn );
+    m_wrapped = ( isAutoWrapMode() && lastColumn );
     if ( !( !isAutoWrapMode() && lastColumn ) )
     {
       idx++;
@@ -1168,48 +1148,62 @@ public abstract class AbstractTerminal implements ITerminal
   }
 
   /**
+   * @return the {@link Writer} to write the responses from this terminal to,
+   *         can be <code>null</code>.
+   */
+  private Writer getWriter()
+  {
+    Writer result = null;
+    if ( m_frontend != null )
+    {
+      result = m_frontend.getWriter();
+    }
+    return result;
+  }
+
+  /**
    * Sets the dimensions of this terminal to the given width and height.
    * 
-   * @param aNewWidth
+   * @param width
    *          the new width in columns, > 0;
-   * @param aNewHeight
+   * @param height
    *          the new height in lines, > 0.
    */
-  private void internalSetDimensions( final int aNewWidth, final int aNewHeight )
+  private void internalSetDimensions( final int width, final int height )
   {
-    TextCell[] newBuffer = new TextCell[aNewWidth * aNewHeight];
+    TextCell[] newBuffer = new TextCell[width * height];
     Arrays.fill( newBuffer, new TextCell() );
-    if ( this.buffer != null )
+    if ( m_buffer != null )
     {
-      int oldWidth = this.width;
+      int oldWidth = m_width;
 
-      for ( int oldIdx = 0; oldIdx < this.buffer.length; oldIdx++ )
+      for ( int oldIdx = 0; oldIdx < m_buffer.length; oldIdx++ )
       {
         int oldColumn = ( oldIdx % oldWidth );
         int oldLine = ( oldIdx / oldWidth );
-        if ( ( oldColumn >= aNewWidth ) || ( oldLine >= aNewHeight ) )
+        if ( ( oldColumn >= width ) || ( oldLine >= height ) )
         {
           continue;
         }
 
-        int newIdx = ( oldLine * aNewWidth ) + oldColumn;
-        newBuffer[newIdx] = this.buffer[oldIdx];
+        int newIdx = ( oldLine * width ) + oldColumn;
+        newBuffer[newIdx] = m_buffer[oldIdx];
       }
     }
 
-    this.width = aNewWidth;
-    this.height = aNewHeight;
+    m_width = width;
+    m_height = height;
 
-    this.firstScrollLine = 0;
-    this.lastScrollLine = aNewHeight - 1;
+    m_firstScrollLine = 0;
+    m_lastScrollLine = height - 1;
 
-    this.buffer = newBuffer;
-    this.heatMap = new boolean[newBuffer.length];
+    m_buffer = newBuffer;
+    m_heatMap = new boolean[newBuffer.length];
 
-    if ( this.frontend != null )
+    if ( m_frontend != null )
     {
       // Notify the frontend that we've changed...
-      this.frontend.terminalSizeChanged( aNewWidth, aNewHeight );
+      m_frontend.terminalSizeChanged( width, height );
     }
   }
 }

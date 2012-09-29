@@ -16,10 +16,10 @@ public interface ITabulator
   /**
    * Clears the tab stop at the given position.
    * 
-   * @param aPosition
+   * @param position
    *          the column position used to determine the next tab stop, > 0.
    */
-  void clear( int aPosition );
+  void clear( int position );
 
   /**
    * Clears all tab stops.
@@ -29,44 +29,44 @@ public interface ITabulator
   /**
    * Returns the width of the tab stop that is at or after the given position.
    * 
-   * @param aPosition
+   * @param position
    *          the column position used to determine the next tab stop, >= 0.
    * @return the next tab stop width, >= 0.
    */
-  int getNextTabWidth( int aPosition );
+  int getNextTabWidth( int position );
 
   /**
    * Returns the width of the tab stop that is before the given position.
    * 
-   * @param aPosition
+   * @param position
    *          the column position used to determine the previous tab stop, >= 0.
    * @return the previous tab stop width, >= 0.
    */
-  int getPreviousTabWidth( int aPosition );
+  int getPreviousTabWidth( int position );
 
   /**
    * Returns the next tab stop that is at or after the given position.
    * 
-   * @param aPosition
+   * @param position
    *          the column position used to determine the next tab stop, >= 0.
    * @return the next tab stop, >= 0.
    */
-  int nextTab( int aPosition );
+  int nextTab( int position );
 
   /**
    * Returns the previous tab stop that is before the given position.
    * 
-   * @param aPosition
+   * @param position
    *          the column position used to determine the previous tab stop, >= 0.
    * @return the previous tab stop, >= 0.
    */
-  int previousTab( int aPosition );
+  int previousTab( int position );
 
   /**
    * Sets the tab stop to the given position.
    * 
-   * @param aPosition
+   * @param position
    *          the position of the (new) tab stop, > 0.
    */
-  void set( int aPosition );
+  void set( int position );
 }

@@ -10,15 +10,17 @@ import java.awt.*;
 
 
 /**
- * Provides the default terminal colors.
+ * Provides the terminal colors.
  */
 public interface ITerminalColorScheme
 {
-
   // METHODS
 
   /**
+   * Returns the background color.
+   * 
    * @return the background color, never <code>null</code>.
+   * @see #setInverted(boolean)
    */
   Color getBackgroundColor();
 
@@ -33,18 +35,20 @@ public interface ITerminalColorScheme
   Color getColorByIndex( int aIndex );
 
   /**
-   * @return the text color for visible escape sequences, never
-   *         <code>null</code>.
-   */
-  Color getEscapedTextColor();
-
-  /**
+   * Returns the foreground color.
+   * 
    * @return the plain text color, never <code>null</code>.
+   * @see #setInverted(boolean)
    */
-  Color getPlainTextColor();
+  Color getTextColor();
 
   /**
-   * @return the status text color, never <code>null</code>.
+   * Sets whether or not the foreground and background color are to be swapped.
+   * 
+   * @param inverted
+   *          <code>true</code> if the background color should become the
+   *          foreground color and the other way around, <code>false</code>
+   *          otherwise.
    */
-  Color getStatusTextColor();
+  void setInverted( boolean inverted );
 }

@@ -26,8 +26,8 @@ public class TestConsole
 {
   // CONSTANTS
 
-  private static final String[] CMD = { "/Users/jawi/bin/vttest" };
-  // private static final String[] CMD = { "/bin/bash", "-l" };
+  // private static final String[] CMD = { "/Users/jawi/bin/vttest", "-s" };
+  private static final String[] CMD = { "/bin/bash", "-l" };
 
   // VARIABLES
 
@@ -241,15 +241,15 @@ public class TestConsole
     ITerminal term;
     if ( !aPlain )
     {
-      term = new VT220Terminal( os, 80, 24 );
+      term = new VT220Terminal( 80, 24 );
     }
     else
     {
-      term = new PlainTerminal( os, 80, 24 );
+      term = new PlainTerminal( 80, 24 );
     }
 
-    this.frontend.setTerminal( term );
     this.frontend.connect( is, os );
+    this.frontend.setTerminal( term );
   }
 
   /**

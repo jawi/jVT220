@@ -135,7 +135,7 @@ public class PlainTerminalTest extends TestCase
   {
     AbstractTerminal term = createTerminal( 5, 5 );
     term.setAutoWrap( false );
-    term.readInput( "11111\r\n22222\r\n33333\r\n44444\r\n55555" );
+    term.read( "11111\r\n22222\r\n33333\r\n44444\r\n55555" );
     term.setScrollRegion( 1, 3 ); // fixate first and last line...
     term.setOriginMode( true ); // make sure origin is retained...
 
@@ -152,7 +152,7 @@ public class PlainTerminalTest extends TestCase
   {
     AbstractTerminal term = createTerminal( 5, 5 );
     term.setAutoWrap( false );
-    term.readInput( "11111\r\n22222\r\n33333\r\n44444\r\n55555" );
+    term.read( "11111\r\n22222\r\n33333\r\n44444\r\n55555" );
     term.moveCursorAbsolute( 1, 2 );
 
     term.scrollUp( 1 );
@@ -181,7 +181,7 @@ public class PlainTerminalTest extends TestCase
   {
     AbstractTerminal term = createTerminal( 5, 5 );
     term.setAutoWrap( false );
-    term.readInput( "11111\r\n22222\r\n33333\r\n44444\r\n55555" );
+    term.read( "11111\r\n22222\r\n33333\r\n44444\r\n55555" );
     term.setScrollRegion( 1, 3 ); // fixate first and last line...
     term.setOriginMode( true ); // make sure origin is retained...
 
@@ -239,10 +239,10 @@ public class PlainTerminalTest extends TestCase
     term.moveCursorAbsolute( 5, 3 );
     assertEquals( "abcdefghijklmno", getTermText( term ) );
 
-    term.readInput( "\b\b" );
+    term.read( "\b\b" );
     assertEquals( "abcdefghijklm  ", getTermText( term ) );
 
-    term.readInput( "op" );
+    term.read( "op" );
     assertEquals( "abcdefghijklmop", getTermText( term ) );
   }
 
@@ -252,7 +252,7 @@ public class PlainTerminalTest extends TestCase
     term.moveCursorAbsolute( 5, 3 );
     assertEquals( "abcdefghijklmno", getTermText( term ) );
 
-    term.readInput( "pq" );
+    term.read( "pq" );
     assertEquals( "fghijklmnopq   ", getTermText( term ) );
   }
 
@@ -261,7 +261,7 @@ public class PlainTerminalTest extends TestCase
     AbstractTerminal term = createTerminal();
     term.clearScreen( 2 );
     term.moveCursorAbsolute( 0, 0 );
-    term.readInput( "ab\ncd\r\nef" );
+    term.read( "ab\ncd\r\nef" );
     assertEquals( "ab     cd ef   ", getTermText( term ) );
   }
 
@@ -280,7 +280,7 @@ public class PlainTerminalTest extends TestCase
    */
   private PlainTerminal createTerminal( int aColumns, int aLines )
   {
-    return new PlainTerminal( new ByteArrayOutputStream(), aColumns, aLines );
+    return new PlainTerminal( aColumns, aLines );
   }
 
   /**
@@ -290,7 +290,7 @@ public class PlainTerminalTest extends TestCase
   {
     PlainTerminal term = createTerminal( 5, 3 );
     term.setAutoWrap( false );
-    term.readInput( aText );
+    term.read( aText );
     term.setAutoWrap( true );
     return term;
   }

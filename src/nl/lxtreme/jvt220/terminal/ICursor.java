@@ -54,17 +54,17 @@ public interface ICursor extends Cloneable
   /**
    * Sets the blinking rate of this cursor.
    * 
-   * @param aRate
+   * @param rate
    *          a blinking rate, in milliseconds. A rate of 0 means no blinking.
    */
-  void setBlinkRate( int aRate );
+  void setBlinkRate( int rate );
 
   /**
    * Sets the visibility of the cursor.
    * 
-   * @param aVisible
+   * @param visible
    *          <code>true</code> to make the cursor visible, <code>false</code>
    *          to hide the cursor.
    */
-  void setVisible( boolean aVisible );
+  void setVisible( boolean visible );
 }

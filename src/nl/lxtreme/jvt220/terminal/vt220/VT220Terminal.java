@@ -34,10 +34,10 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
   {
     // VARIABLES
 
-    private final GraphicSet[] graphicSets;
-    private GraphicSet gl;
-    private GraphicSet gr;
-    private GraphicSet glOverride;
+    private final GraphicSet[] m_graphicSets;
+    private GraphicSet m_gl;
+    private GraphicSet m_gr;
+    private GraphicSet m_glOverride;
 
     // CONSTRUCTORS
 
@@ -46,10 +46,10 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
      */
     public GraphicSetState()
     {
-      this.graphicSets = new GraphicSet[4];
-      for ( int i = 0; i < this.graphicSets.length; i++ )
+      m_graphicSets = new GraphicSet[4];
+      for ( int i = 0; i < m_graphicSets.length; i++ )
       {
-        this.graphicSets[i] = new GraphicSet( i );
+        m_graphicSets[i] = new GraphicSet( i );
       }
 
       resetState();
@@ -60,29 +60,28 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
     /**
      * Designates the given graphic set to the character set designator.
      * 
-     * @param aGraphicSet
+     * @param graphicSet
      *          the graphic set to designate;
-     * @param aDesignator
+     * @param designator
      *          the designator of the character set.
      */
-    public void designateGraphicSet( GraphicSet aGraphicSet, char aDesignator )
+    public void designateGraphicSet( GraphicSet graphicSet, char designator )
     {
-      aGraphicSet.setDesignation( CharacterSet.valueOf( aDesignator ) );
+      graphicSet.setDesignation( CharacterSet.valueOf( designator ) );
     }
 
     /**
-     * Returns the GL graphic set.
+     * Returns the (possibly overridden) GL graphic set.
      * 
-     * @return the GL graphic set (possibly overridden), never <code>null</code>
-     *         .
+     * @return the GL graphic set, never <code>null</code>.
      */
     public GraphicSet getGL()
     {
-      GraphicSet result = this.gl;
-      if ( this.glOverride != null )
+      GraphicSet result = m_gl;
+      if ( m_glOverride != null )
       {
-        result = this.glOverride;
-        this.glOverride = null;
+        result = m_glOverride;
+        m_glOverride = null;
       }
       return result;
     }
@@ -94,30 +93,42 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
      */
     public GraphicSet getGR()
     {
-      return this.gr;
+      return m_gr;
     }
 
     /**
      * Returns the current graphic set (one of four).
      * 
-     * @param aIndex
+     * @param index
      *          the index of the graphic set, 0..3.
      * @return a graphic set, never <code>null</code>.
      */
-    public GraphicSet getGraphicSet( int aIndex )
+    public GraphicSet getGraphicSet( int index )
     {
-      return this.graphicSets[aIndex % 4];
+      return m_graphicSets[index % 4];
+    }
+
+    /**
+     * Returns the mapping for the given character.
+     * 
+     * @param ch
+     *          the character to map.
+     * @return the mapped character.
+     */
+    public char map( char ch )
+    {
+      return CharacterSets.getChar( ch, getGL(), getGR() );
     }
 
     /**
      * Overrides the GL graphic set for the next written character.
      * 
-     * @param aIndex
+     * @param index
      *          the graphic set index, >= 0 && < 3.
      */
-    public void overrideGL( int aIndex )
+    public void overrideGL( int index )
     {
-      this.glOverride = getGraphicSet( aIndex );
+      m_glOverride = getGraphicSet( index );
     }
 
     /**
@@ -125,35 +136,35 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
      */
     public void resetState()
     {
-      for ( int i = 0; i < this.graphicSets.length; i++ )
+      for ( int i = 0; i < m_graphicSets.length; i++ )
       {
-        this.graphicSets[i].setDesignation( CharacterSet.valueOf( ( i == 1 ) ? '0' : 'B' ) );
+        m_graphicSets[i].setDesignation( CharacterSet.valueOf( ( i == 1 ) ? '0' : 'B' ) );
       }
-      this.gl = this.graphicSets[0];
-      this.gr = this.graphicSets[1];
-      this.glOverride = null;
+      m_gl = m_graphicSets[0];
+      m_gr = m_graphicSets[1];
+      m_glOverride = null;
     }
 
     /**
      * Selects the graphic set for GL.
      * 
-     * @param aIndex
+     * @param index
      *          the graphic set index, >= 0 && <= 3.
      */
-    public void setGL( int aIndex )
+    public void setGL( int index )
     {
-      this.gl = getGraphicSet( aIndex );
+      m_gl = getGraphicSet( index );
     }
 
     /**
      * Selects the graphic set for GR.
      * 
-     * @param aIndex
+     * @param index
      *          the graphic set index, >= 0 && <= 3.
      */
-    public void setGR( int aIndex )
+    public void setGR( int index )
     {
-      this.gr = getGraphicSet( aIndex );
+      m_gr = getGraphicSet( index );
     }
   }
 
@@ -169,15 +180,15 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
   {
     // VARIABLES
 
-    private final CharacterSet[] graphicSetDesignations;
+    private final CharacterSet[] m_graphicSetDesignations;
 
-    private int cursorIndex;
-    private short attrs;
-    private boolean autoWrap;
-    private boolean originMode;
-    private int glIndex;
-    private int grIndex;
-    private int glOverrideIndex;
+    private int m_cursorIndex;
+    private short m_attrs;
+    private boolean m_autoWrap;
+    private boolean m_originMode;
+    private int m_glIndex;
+    private int m_grIndex;
+    private int m_glOverrideIndex;
 
     // CONSTRUCTORS
 
@@ -186,59 +197,59 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
      */
     public StateHolder()
     {
-      this.graphicSetDesignations = new CharacterSet[4];
-      this.cursorIndex = 0;
-      this.autoWrap = true;
-      this.originMode = false;
-      this.glIndex = 0;
-      this.grIndex = 1;
-      this.glOverrideIndex = -1;
+      m_graphicSetDesignations = new CharacterSet[4];
+      m_cursorIndex = 0;
+      m_autoWrap = true;
+      m_originMode = false;
+      m_glIndex = 0;
+      m_grIndex = 1;
+      m_glOverrideIndex = -1;
     }
 
     // METHODS
 
-    public int restore( VT220Terminal aTerminal )
+    public int restore( VT220Terminal terminal )
     {
-      aTerminal.textAttributes.setAttributes( this.attrs );
-      aTerminal.setAutoWrap( this.autoWrap );
-      aTerminal.setOriginMode( this.originMode );
+      terminal.m_textAttributes.setAttributes( m_attrs );
+      terminal.setAutoWrap( m_autoWrap );
+      terminal.setOriginMode( m_originMode );
 
-      GraphicSetState gss = aTerminal.graphicSetState;
-      for ( int i = 0; i < gss.graphicSets.length; i++ )
+      GraphicSetState gss = terminal.m_graphicSetState;
+      for ( int i = 0; i < gss.m_graphicSets.length; i++ )
       {
-        gss.graphicSets[i].setDesignation( this.graphicSetDesignations[i] );
+        gss.m_graphicSets[i].setDesignation( m_graphicSetDesignations[i] );
       }
-      gss.setGL( this.glIndex );
-      gss.setGR( this.grIndex );
+      gss.setGL( m_glIndex );
+      gss.setGR( m_grIndex );
 
-      if ( this.glOverrideIndex >= 0 )
+      if ( m_glOverrideIndex >= 0 )
       {
-        gss.overrideGL( this.glOverrideIndex );
+        gss.overrideGL( m_glOverrideIndex );
       }
 
-      return this.cursorIndex;
+      return m_cursorIndex;
     }
 
-    public void store( VT220Terminal aTerminal )
+    public void store( VT220Terminal terminal )
     {
-      this.cursorIndex = aTerminal.getAbsoluteCursorIndex();
-      this.attrs = aTerminal.textAttributes.getAttributes();
-      this.autoWrap = aTerminal.isAutoWrapMode();
-      this.originMode = aTerminal.isOriginMode();
+      m_cursorIndex = terminal.getAbsoluteCursorIndex();
+      m_attrs = terminal.m_textAttributes.getAttributes();
+      m_autoWrap = terminal.isAutoWrapMode();
+      m_originMode = terminal.isOriginMode();
 
-      GraphicSetState gss = aTerminal.graphicSetState;
-      this.glIndex = gss.gl.getIndex();
-      this.grIndex = gss.gr.getIndex();
+      GraphicSetState gss = terminal.m_graphicSetState;
+      m_glIndex = gss.m_gl.getIndex();
+      m_grIndex = gss.m_gr.getIndex();
 
-      this.glOverrideIndex = -1;
-      if ( gss.glOverride != null )
+      m_glOverrideIndex = -1;
+      if ( gss.m_glOverride != null )
       {
-        this.glOverrideIndex = gss.glOverride.getIndex();
+        m_glOverrideIndex = gss.m_glOverride.getIndex();
       }
 
-      for ( int i = 0; i < gss.graphicSets.length; i++ )
+      for ( int i = 0; i < gss.m_graphicSets.length; i++ )
       {
-        this.graphicSetDesignations[i] = gss.graphicSets[i].getDesignation();
+        m_graphicSetDesignations[i] = gss.m_graphicSets[i].getDesignation();
       }
     }
   }
@@ -252,29 +263,27 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
 
   // VARIABLES
 
-  private final GraphicSetState graphicSetState;
-  private final VT220Parser vt220parser;
-  private final StateHolder savedState;
+  private final GraphicSetState m_graphicSetState;
+  private final VT220Parser m_vt220parser;
+  private final StateHolder m_savedState;
 
   // CONSTRUCTORS
 
   /**
    * Creates a new {@link VT220Terminal} instance.
    * 
-   * @param aOutputStream
-   *          the output stream to write back to, cannot be <code>null</code>;
-   * @param aColumns
+   * @param columns
    *          the initial number of columns in this terminal, > 0;
-   * @param aLines
+   * @param lines
    *          the initial number of lines in this terminal, > 0.
    */
-  public VT220Terminal( final OutputStream aOutputStream, final int aColumns, final int aLines )
+  public VT220Terminal( final int columns, final int lines )
   {
-    super( aOutputStream, aColumns, aLines );
+    super( columns, lines );
 
-    this.graphicSetState = new GraphicSetState();
-    this.vt220parser = new VT220Parser( 4 );
-    this.savedState = new StateHolder();
+    m_graphicSetState = new GraphicSetState();
+    m_vt220parser = new VT220Parser();
+    m_savedState = new StateHolder();
 
     // Make sure the terminal is in a known state...
     reset();
@@ -286,12 +295,11 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
    * {@inheritDoc}
    */
   @Override
-  public void handleCharacter( char aChar ) throws IOException
+  public void handleCharacter( char ch ) throws IOException
   {
     int idx = getAbsoluteCursorIndex();
-    char ch = CharacterSets.getChar( aChar, this.graphicSetState.getGL(), this.graphicSetState.getGR() );
 
-    idx = writeChar( idx, ch );
+    idx = writeChar( idx, m_graphicSetState.map( ch ) );
 
     updateCursorByAbsoluteIndex( idx );
   }
@@ -300,22 +308,23 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
    * {@inheritDoc}
    */
   @Override
-  public void handleControl( char aControlChar ) throws IOException
+  public void handleControl( char controlChar ) throws IOException
   {
     int idx = getAbsoluteCursorIndex();
-    switch ( aControlChar )
+
+    switch ( controlChar )
     {
       case SO:
       {
         // Shift-out (select G1 as GL)...
-        this.graphicSetState.setGL( 1 );
+        m_graphicSetState.setGL( 1 );
         break;
       }
 
       case SI:
       {
         // Shift-in (select G0 as GL)...
-        this.graphicSetState.setGL( 0 );
+        m_graphicSetState.setGL( 0 );
         break;
       }
 
@@ -416,7 +425,7 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
 
       default:
       {
-        log( "Unknown control character: " + ( int )aControlChar );
+        log( "Unknown control character: " + ( int )controlChar );
         break;
       }
     }
@@ -429,15 +438,15 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
    * {@inheritDoc}
    */
   @Override
-  public void handleCSI( CSIType aType, int... aParameters ) throws IOException
+  public void handleCSI( CSIType type, int... parameters ) throws IOException
   {
     int idx = getAbsoluteCursorIndex();
-    switch ( aType )
+    switch ( type )
     {
       case ICH: // @
       {
         // Insert N (blank) Character(s) (default = 1)
-        int count = aParameters[0];
+        int count = parameters[0];
         idx = insertChars( idx, ' ', count );
         break;
       }
@@ -445,7 +454,7 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
       case SL: // [ ]@
       {
         // Scroll left N character(s) (default = 1)
-        int count = aParameters[0];
+        int count = parameters[0];
         for ( int r = getFirstScrollLine(), last = getLastScrollLine(); r < last; r++ )
         {
           deleteChars( getAbsoluteIndex( 0, r ), count );
@@ -457,7 +466,7 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
       {
         // Moves the cursor up N lines in the same column. The cursor stops at
         // the top margin.
-        int n = aParameters[0];
+        int n = parameters[0];
 
         int col = idx % getWidth();
         int row = Math.max( getFirstScrollLine(), ( idx / getWidth() ) - n );
@@ -469,7 +478,7 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
       case SR: // [ ]A
       {
         // Scroll right N character(s) (default = 1)
-        int count = aParameters[0];
+        int count = parameters[0];
         for ( int r = getFirstScrollLine(), last = getLastScrollLine(); r < last; r++ )
         {
           insertChars( getAbsoluteIndex( 0, r ), ' ', count );
@@ -481,7 +490,7 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
       {
         // Moves the cursor down N lines in the same column. The cursor stops at
         // the bottom margin.
-        int n = aParameters[0];
+        int n = parameters[0];
 
         int col = idx % getWidth();
         int row = Math.min( getLastScrollLine(), ( idx / getWidth() ) + n );
@@ -494,7 +503,7 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
       {
         // Moves the cursor right N columns. The cursor stops at the right
         // margin.
-        int n = aParameters[0];
+        int n = parameters[0];
 
         int col = Math.min( getWidth() - 1, ( idx % getWidth() ) + n );
         int row = idx / getWidth();
@@ -506,7 +515,7 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
       case CUB: // D
       {
         // Moves the cursor left N columns. The cursor stops at the left margin.
-        int n = aParameters[0];
+        int n = parameters[0];
 
         if ( isAutoWrapMode() && isWrapped() )
         {
@@ -524,7 +533,7 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
       case CNL: // E
       {
         // Move cursor down the indicated # of rows, to column 1.
-        int n = aParameters[0];
+        int n = parameters[0];
 
         int col = 0;
         int row = Math.min( getLastScrollLine(), ( idx / getWidth() ) + n );
@@ -536,7 +545,7 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
       case CPL: // F
       {
         // Move cursor up the indicated # of rows, to column 1.
-        int n = aParameters[0];
+        int n = parameters[0];
 
         int col = 0;
         int row = Math.max( getFirstScrollLine(), ( idx / getWidth() ) - n );
@@ -549,7 +558,7 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
       {
         // Character Position Absolute [column] (default = [row,1])
         // Cursor Character Absolute [column] (default = [row,1])
-        int x = aParameters[0];
+        int x = parameters[0];
 
         int col = Math.max( 0, Math.min( getWidth(), x - 1 ) );
         int row = Math.max( getFirstScrollLine(), Math.min( getLastScrollLine(), idx / getWidth() ) );
@@ -561,8 +570,8 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
       case CUP: // H,f
       {
         // Cursor Position [row;column] (default = [1,1])
-        int row = aParameters[0] - 1;
-        int col = aParameters[1] - 1;
+        int row = parameters[0] - 1;
+        int col = parameters[1] - 1;
 
         // Movement is *relative* to origin, if enabled...
         if ( isOriginMode() )
@@ -585,7 +594,7 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
       case CHT: // I
       {
         // Cursor Forward Tabulation N tab stops (default = 1)
-        int count = aParameters[0];
+        int count = parameters[0];
         while ( count-- > 0 )
         {
           idx += getTabulator().getNextTabWidth( idx % getWidth() );
@@ -596,7 +605,7 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
       case ED: // J
       {
         // Erase in Display...
-        int mode = aParameters[0];
+        int mode = parameters[0];
 
         clearScreen( mode, idx, isErasureMode() );
         break;
@@ -605,7 +614,7 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
       case DECSED: // ^J
       {
         // Erase in Display...
-        int mode = aParameters[0];
+        int mode = parameters[0];
 
         clearScreen( mode, idx, true /* aKeepProtectedCells */);
         break;
@@ -614,7 +623,7 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
       case EL: // K
       {
         // Clear line...
-        int mode = aParameters[0];
+        int mode = parameters[0];
 
         clearLine( mode, idx, isErasureMode() );
         break;
@@ -623,7 +632,7 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
       case DECSEL: // ^K
       {
         // Clear line...
-        int mode = aParameters[0];
+        int mode = parameters[0];
 
         clearLine( mode, idx, true /* aKeepProtectedCells */);
         break;
@@ -638,7 +647,7 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
         // down. Lines moved past the bottom margin are lost. The cursor
         // is reset to the first column. This sequence is ignored when the
         // cursor is outside the scrolling region.
-        int lines = aParameters[0];
+        int lines = parameters[0];
 
         scrollDown( lines ); // XXX this is not correct!
         break;
@@ -654,7 +663,7 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
         // bottom of the scrolling region. The cursor is reset to the
         // first column. This sequence is ignored when the cursor is
         // outside the scrolling region.
-        int lines = aParameters[0];
+        int lines = parameters[0];
 
         scrollUp( lines ); // XXX this is not correct!
         break;
@@ -663,7 +672,7 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
       case DCH: // P
       {
         // Delete N Character(s) (default = 1)
-        int count = aParameters[0];
+        int count = parameters[0];
 
         idx = deleteChars( idx, count );
         break;
@@ -672,7 +681,7 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
       case SU: // S
       {
         // Scroll N lines up...
-        int lines = aParameters[0];
+        int lines = parameters[0];
 
         scrollUp( lines );
         break;
@@ -681,7 +690,7 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
       case SD: // T
       {
         // Scroll N lines down...
-        int lines = aParameters[0];
+        int lines = parameters[0];
 
         scrollDown( lines );
         break;
@@ -690,7 +699,7 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
       case ECH: // X
       {
         // Erase N Character(s) (default = 1)
-        int n = aParameters[0] - 1;
+        int n = parameters[0] - 1;
 
         int tmpIdx = idx;
         if ( tmpIdx + n > getWidth() )
@@ -709,7 +718,7 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
       case CBT: // Z
       {
         // Cursor Backward Tabulation N tab stops (default = 1)
-        int count = aParameters[0];
+        int count = parameters[0];
         while ( count-- > 0 )
         {
           idx -= getTabulator().getPreviousTabWidth( idx % getWidth() );
@@ -720,7 +729,7 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
       case HPR: // a
       {
         // Move cursor right the indicated # of columns.
-        int n = aParameters[0];
+        int n = parameters[0];
 
         int w = getWidth();
         int col = Math.min( w - 1, ( idx % w ) + n );
@@ -734,8 +743,8 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
       case REP: // b
       {
         // Repeat the preceding graphic character N times
-        int count = aParameters[0];
-        char ch = ( char )aParameters[1];
+        int count = parameters[0];
+        char ch = ( char )parameters[1];
 
         while ( count-- > 0 )
         {
@@ -747,7 +756,7 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
       case PrimaryDA: // c
       {
         // Send Device Attributes (Primary DA)
-        int arg = aParameters[0];
+        int arg = parameters[0];
         sendDeviceAttributes( arg );
         break;
       }
@@ -755,7 +764,7 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
       case SecondaryDA: // >c
       {
         // Send Device Attributes (Secondary DA)
-        int arg = aParameters[0];
+        int arg = parameters[0];
         if ( arg == 0 )
         {
           writeResponse( ResponseType.CSI, ">1;123;0c" );
@@ -766,7 +775,7 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
       case VPA: // d
       {
         // (VPA) Line Position Absolute [row] (default = [1,column])
-        int row = aParameters[0] - 1;
+        int row = parameters[0] - 1;
         int col = idx % getWidth();
 
         if ( row < getFirstScrollLine() )
@@ -785,7 +794,7 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
       case VPR: // e
       {
         // Move cursor down the indicated N of columns (default = 1).
-        int n = aParameters[0];
+        int n = parameters[0];
 
         int col = idx % getWidth();
         int row = ( idx / getWidth() ) + n;
@@ -801,7 +810,7 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
       case TBC: // g
       {
         // Tab Clear
-        int arg = aParameters[0];
+        int arg = parameters[0];
 
         if ( arg == 0 )
         {
@@ -818,7 +827,7 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
       case SM: // h
       {
         // Set mode
-        int arg = aParameters[0];
+        int arg = parameters[0];
         switch ( arg )
         {
           case 4:
@@ -846,13 +855,13 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
       case DECSET: // ?h
       {
         // DEC Private Mode Set
-        int arg = aParameters[0];
+        int arg = parameters[0];
         switch ( arg )
         {
           case 2:
             // (DECANM) Designate USASCII for character sets G0-G3; set VT100
             // mode.
-            this.graphicSetState.resetState();
+            m_graphicSetState.resetState();
             set8bitMode( false );
             break;
 
@@ -917,7 +926,7 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
       case HPB: // j
       {
         // Character position backward N positions (default = 1).
-        int n = aParameters[0];
+        int n = parameters[0];
 
         int col = Math.max( 0, idx % getWidth() - n );
         int row = idx / getWidth();
@@ -929,7 +938,7 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
       case VPB: // k
       {
         // Line position backward N lines (default = 1).
-        int n = aParameters[0];
+        int n = parameters[0];
 
         int w = getWidth();
         int col = idx % w;
@@ -942,7 +951,7 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
       case RM: // l
       {
         // Reset mode
-        int arg = aParameters[0];
+        int arg = parameters[0];
         switch ( arg )
         {
           case 4:
@@ -970,12 +979,12 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
       case DECRST: // ?l
       {
         // Reset mode / DEC Private Mode Reset...
-        int arg = aParameters[0];
+        int arg = parameters[0];
         switch ( arg )
         {
           case 2:
             // (DECANM) Set VT52 mode.
-            this.graphicSetState.resetState();
+            m_graphicSetState.resetState();
             break;
 
           case 3:
@@ -1033,13 +1042,13 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
       case SGR: // m
       {
         // Set Graphics Rendering
-        handleGraphicsRendering( aParameters );
+        handleGraphicsRendering( parameters );
         break;
       }
 
       case DSR: // n
       {
-        int arg = aParameters[0];
+        int arg = parameters[0];
         if ( arg == 5 )
         {
           // Status report...
@@ -1058,7 +1067,7 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
       case DECSDSR: // ?n
       {
         // Device Status Report (DEC-specific)
-        int arg = aParameters[0];
+        int arg = parameters[0];
         switch ( arg )
         {
           case 6:
@@ -1100,8 +1109,8 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
       case DECSCL: // "p
       {
         // Set conformance level
-        int compatibilityLevel = ( aParameters[0] - 60 );
-        int eightBitMode = ( aParameters.length > 1 ) ? aParameters[1] : 0;
+        int compatibilityLevel = ( parameters[0] - 60 );
+        int eightBitMode = ( parameters.length > 1 ) ? parameters[1] : 0;
         setConformanceLevel( compatibilityLevel, eightBitMode != 1 );
         break;
       }
@@ -1109,17 +1118,17 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
       case DECSCA: // "q
       {
         // Select character protection attribute
-        int mode = aParameters[0];
+        int mode = parameters[0];
         // 0 or 2 == erasable; 1 == not erasable...
-        this.textAttributes.setProtected( mode == 1 );
+        m_textAttributes.setProtected( mode == 1 );
         break;
       }
 
       case DECSTBM: // r
       {
         // Set Scrolling Region [top;bottom] (default = full size of window)
-        int top = aParameters[0];
-        int bottom = aParameters[1];
+        int top = parameters[0];
+        int bottom = parameters[1];
         if ( bottom == 0 )
         {
           bottom = getHeight();
@@ -1153,15 +1162,15 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
       case WindowManipulation: // t
       {
         // dtterm window manipulation...
-        int type = aParameters[0];
-        switch ( type )
+        int param = parameters[0];
+        switch ( param )
         {
           case 4:
             // resize to height;width in pixels
-            if ( aParameters.length == 3 )
+            if ( parameters.length == 3 )
             {
-              int height = aParameters[1];
-              int width = aParameters[2];
+              int height = parameters[1];
+              int width = parameters[2];
 
               setDimensionsInPixels( width, height );
               idx = getFirstAbsoluteIndex();
@@ -1169,11 +1178,11 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
             break;
 
           case 8:
-            if ( aParameters.length == 3 )
+            if ( parameters.length == 3 )
             {
               // resize to height;width in chars
-              int rows = aParameters[1];
-              int cols = aParameters[2];
+              int rows = parameters[1];
+              int cols = parameters[2];
 
               setDimensions( cols, rows );
               idx = getFirstAbsoluteIndex();
@@ -1203,13 +1212,13 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
               height = size.height;
             }
 
-            writeResponse( ResponseType.CSI, String.format( "%d;%d;%dt", ( type - 10 ), height, width ) );
+            writeResponse( ResponseType.CSI, String.format( "%d;%d;%dt", ( param - 10 ), height, width ) );
             break;
 
           case 18:
           case 19:
             // report dimensions in characters
-            writeResponse( ResponseType.CSI, String.format( "%d;%d;%dt", ( type - 10 ), getHeight(), getWidth() ) );
+            writeResponse( ResponseType.CSI, String.format( "%d;%d;%dt", ( param - 10 ), getHeight(), getWidth() ) );
             break;
 
           case 20:
@@ -1223,11 +1232,11 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
             break;
 
           default:
-            if ( type >= 24 )
+            if ( param >= 24 )
             {
               // resize to N lines...
               int cols = getWidth();
-              int rows = type;
+              int rows = param;
 
               setDimensions( cols, rows );
               idx = getFirstAbsoluteIndex();
@@ -1258,7 +1267,7 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
       case DECREQTPARM: // x
       {
         // Request Terminal Parameters
-        int arg = aParameters[0];
+        int arg = parameters[0];
 
         writeResponse( ResponseType.CSI, String.format( "%d;1;1;112;112;1;0x", arg + 2 ) );
         break;
@@ -1301,7 +1310,7 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
       }
 
       default:
-        log( "Unhandled CSI: " + aType );
+        log( "Unhandled CSI: " + type );
         break;
     }
     // Update the cursor position...
@@ -1313,10 +1322,11 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
    * {@inheritDoc}
    */
   @Override
-  public void handleESC( char aDesignator, int... aParameters ) throws IOException
+  public void handleESC( char designator, int... parameters ) throws IOException
   {
     int idx = getAbsoluteCursorIndex();
-    switch ( aDesignator )
+
+    switch ( designator )
     {
       case 'D': // IND
       {
@@ -1372,31 +1382,31 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
       case 'n': // LS2
       {
         // Invoke the G2 Character Set as GL
-        this.graphicSetState.setGL( 2 );
+        m_graphicSetState.setGL( 2 );
         break;
       }
       case 'o': // LS3
       {
         // Invoke the G3 Character Set as GL
-        this.graphicSetState.setGL( 3 );
+        m_graphicSetState.setGL( 3 );
         break;
       }
       case '|': // LS3R
       {
         // Invoke the G3 Character Set as GR
-        this.graphicSetState.setGR( 3 );
+        m_graphicSetState.setGR( 3 );
         break;
       }
       case '}': // LS2R
       {
         // Invoke the G2 Character Set as GR
-        this.graphicSetState.setGR( 2 );
+        m_graphicSetState.setGR( 2 );
         break;
       }
       case '~': // LS1R
       {
         // Invoke the G1 Character Set as GR
-        this.graphicSetState.setGR( 1 );
+        m_graphicSetState.setGR( 1 );
         break;
       }
       case '7': // DECSC
@@ -1411,7 +1421,7 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
       }
       case ' ':
       {
-        char arg = ( char )aParameters[0];
+        char arg = ( char )parameters[0];
         switch ( arg )
         {
           case 'F':
@@ -1438,7 +1448,7 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
       }
       case '#':
       {
-        char arg = ( char )aParameters[0];
+        char arg = ( char )parameters[0];
         switch ( arg )
         {
           case '8':
@@ -1468,8 +1478,8 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
       case '+':
       {
         // Designate G0/G1/G2 or G3 Character Set
-        GraphicSet gs = this.graphicSetState.getGraphicSet( aDesignator - '(' );
-        this.graphicSetState.designateGraphicSet( gs, ( char )aParameters[0] );
+        GraphicSet gs = m_graphicSetState.getGraphicSet( designator - '(' );
+        m_graphicSetState.designateGraphicSet( gs, ( char )parameters[0] );
         break;
       }
       case '=':
@@ -1487,7 +1497,7 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
 
       default:
       {
-        log( "Unhandled ESC designator: " + aDesignator );
+        log( "Unhandled ESC designator: " + designator );
         break;
       }
     }
@@ -1511,42 +1521,52 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
    * Sets the dimensions of this terminal in columns and lines. Overridden in
    * order to handle zero and negative values as possible values.
    * 
-   * @param aNewWidth
+   * @param width
    *          the new width of this terminal in columns, if zero or negative,
    *          the maximum possible number of columns will be used;
-   * @param aNewHeight
+   * @param height
    *          the new height of this terminal in lines, if zero or negative, the
    *          maximum possible number of lines will be used.
    */
   @Override
-  public void setDimensions( int aNewWidth, int aNewHeight )
+  public void setDimensions( int width, int height )
   {
-    if ( aNewWidth <= 0 || aNewHeight <= 0 )
+    if ( width <= 0 || height <= 0 )
     {
       Dimension maximumSize = null;
       if ( getFrontend() != null )
       {
         maximumSize = getFrontend().getMaximumTerminalSize();
       }
-      if ( aNewWidth <= 0 )
+      if ( width <= 0 )
       {
-        aNewWidth = ( maximumSize != null ) ? maximumSize.width : getWidth();
+        width = ( maximumSize != null ) ? maximumSize.width : getWidth();
       }
-      if ( aNewHeight <= 0 )
+      if ( height <= 0 )
       {
-        aNewHeight = ( maximumSize != null ) ? maximumSize.height : getHeight();
+        height = ( maximumSize != null ) ? maximumSize.height : getHeight();
       }
     }
-    super.setDimensions( aNewWidth, aNewHeight );
+    super.setDimensions( width, height );
   }
 
   /**
    * {@inheritDoc}
    */
   @Override
-  protected int doReadInput( final CharSequence aText ) throws IOException
+  public void setLogLevel( int aLogLevel )
   {
-    return this.vt220parser.parse( aText, this );
+    super.setLogLevel( aLogLevel );
+    m_vt220parser.setLogLevel( aLogLevel );
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  @Override
+  protected int doReadInput( final CharSequence text ) throws IOException
+  {
+    return m_vt220parser.parse( text, this );
   }
 
   /**
@@ -1558,7 +1578,7 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
    */
   protected final boolean is132ColumnMode()
   {
-    return this.options.get( OPTION_132COLS );
+    return m_options.get( OPTION_132COLS );
   }
 
   /**
@@ -1570,7 +1590,7 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
    */
   protected final boolean is8bitMode()
   {
-    return this.options.get( OPTION_8BIT );
+    return m_options.get( OPTION_8BIT );
   }
 
   /**
@@ -1583,7 +1603,7 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
    */
   protected final boolean isErasureMode()
   {
-    return this.options.get( OPTION_ERASURE_MODE );
+    return m_options.get( OPTION_ERASURE_MODE );
   }
 
   /**
@@ -1595,21 +1615,21 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
    */
   protected final boolean isReverseWrapAround()
   {
-    return this.options.get( OPTION_REVERSE_WRAP_AROUND );
+    return m_options.get( OPTION_REVERSE_WRAP_AROUND );
   }
 
   /**
    * Enables or disables the auto-wrap mode.
    * 
-   * @param aEnable
+   * @param enable
    *          <code>true</code> to enable auto-wrap mode, <code>false</code> to
    *          disable it.
    */
-  protected final void set132ColumnMode( boolean aEnable )
+  protected final void set132ColumnMode( boolean enable )
   {
-    this.options.set( OPTION_132COLS, aEnable );
+    m_options.set( OPTION_132COLS, enable );
 
-    if ( aEnable )
+    if ( enable )
     {
       setDimensions( 132, getHeight() );
     }
@@ -1623,26 +1643,26 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
    * Sets whether or not responses send by this terminal are in 7- or in 8-bit
    * mode.
    * 
-   * @param aEnable
+   * @param enable
    *          <code>true</code> to send responses in 8-bit mode,
    *          <code>false</code> to send responses in 7-bit mode.
    */
-  protected final void set8bitMode( boolean aEnable )
+  protected final void set8bitMode( boolean enable )
   {
-    this.options.set( OPTION_8BIT, aEnable );
+    m_options.set( OPTION_8BIT, enable );
   }
 
   /**
    * Sets whether or not protected content is to be erased.
    * 
-   * @param aEnable
+   * @param enable
    *          <code>true</code> to allow only unprotected content to be erased,
    *          <code>false</code> to allow both protected and unprotected content
    *          to be erased.
    */
-  protected final void setErasureMode( boolean aEnable )
+  protected final void setErasureMode( boolean enable )
   {
-    this.options.set( OPTION_ERASURE_MODE, aEnable );
+    m_options.set( OPTION_ERASURE_MODE, enable );
   }
 
   /**
@@ -1650,13 +1670,13 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
    * hitting backspace or issuing cursor-back commands after a wrap-around has
    * taken place will revert this wrap-around.
    * 
-   * @param aEnable
+   * @param enable
    *          <code>true</code> to enable reverse wrap around,
    *          <code>false</code> to disable it.
    */
-  protected final void setReverseWrapAround( boolean aEnable )
+  protected final void setReverseWrapAround( boolean enable )
   {
-    this.options.set( OPTION_REVERSE_WRAP_AROUND, aEnable );
+    m_options.set( OPTION_REVERSE_WRAP_AROUND, enable );
   }
 
   /**
@@ -1664,7 +1684,7 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
    */
   private void handleEPA()
   {
-    this.textAttributes.setProtected( false );
+    m_textAttributes.setProtected( false );
   }
 
   /**
@@ -1676,10 +1696,10 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
    *          instance, cannot be <code>null</code>.
    * @return a {@link SimpleAttributeSet} instance, never <code>null</code>.
    */
-  private void handleGraphicsRendering( int[] aParameters )
+  private void handleGraphicsRendering( int[] parameters )
   {
     boolean containsHiddenAttr = false;
-    for ( int p : aParameters )
+    for ( int p : parameters )
     {
       if ( p == 8 )
       {
@@ -1688,110 +1708,110 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
       }
     }
 
-    if ( this.textAttributes.isHidden() && !containsHiddenAttr )
+    if ( m_textAttributes.isHidden() && !containsHiddenAttr )
     {
       // It appears that after an invisible attribute, *both* reverse as
       // invisible are to be reset...
-      this.textAttributes.setHidden( false );
-      this.textAttributes.setReverse( false );
+      m_textAttributes.setHidden( false );
+      m_textAttributes.setReverse( false );
     }
 
-    for ( int p : aParameters )
+    for ( int p : parameters )
     {
-      handleGraphicsRendering( this.textAttributes, p );
+      handleGraphicsRendering( m_textAttributes, p );
     }
   }
 
   /**
    * Handles the given graphics parameter.
    * 
-   * @param aAttributes
+   * @param attributes
    *          the text attributes to update;
-   * @param aParameter
+   * @param parameter
    *          the graphics parameter to handle.
    */
-  private void handleGraphicsRendering( final TextAttributes aAttributes, final int aParameter )
+  private void handleGraphicsRendering( final TextAttributes attributes, final int parameter )
   {
-    if ( aParameter == 0 || aParameter == 39 || aParameter == 49 )
+    if ( parameter == 0 || parameter == 39 || parameter == 49 )
     {
-      if ( aParameter == 0 )
+      if ( parameter == 0 )
       {
-        aAttributes.resetAll();
+        attributes.resetAll();
       }
       else
       {
-        aAttributes.reset();
+        attributes.reset();
       }
     }
 
-    if ( aParameter == 1 )
+    if ( parameter == 1 )
     {
-      aAttributes.setBold( true );
+      attributes.setBold( true );
     }
-    else if ( aParameter == 4 )
+    else if ( parameter == 4 )
     {
-      aAttributes.setUnderline( true );
+      attributes.setUnderline( true );
     }
-    else if ( aParameter == 5 )
+    else if ( parameter == 5 )
     {
       // Blink on...
-      aAttributes.setItalic( true );
+      attributes.setItalic( true );
     }
-    else if ( aParameter == 7 )
+    else if ( parameter == 7 )
     {
       // Negative/reverse...
-      aAttributes.setReverse( true );
+      attributes.setReverse( true );
     }
-    else if ( aParameter == 8 )
+    else if ( parameter == 8 )
     {
       // Invisible (hidden)...
-      aAttributes.setHidden( true );
+      attributes.setHidden( true );
     }
-    else if ( aParameter == 21 || aParameter == 22 )
+    else if ( parameter == 21 || parameter == 22 )
     {
-      aAttributes.setBold( false );
+      attributes.setBold( false );
     }
-    else if ( aParameter == 24 )
+    else if ( parameter == 24 )
     {
-      aAttributes.setUnderline( false );
+      attributes.setUnderline( false );
     }
-    else if ( aParameter == 25 )
+    else if ( parameter == 25 )
     {
       // Blink off...
-      aAttributes.setItalic( false );
+      attributes.setItalic( false );
     }
-    else if ( aParameter == 27 )
+    else if ( parameter == 27 )
     {
       // Reset negative...
-      aAttributes.setReverse( false );
+      attributes.setReverse( false );
     }
-    else if ( aParameter == 28 )
+    else if ( parameter == 28 )
     {
       // Reset invisible (shown)...
-      aAttributes.setHidden( false );
+      attributes.setHidden( false );
     }
-    else if ( ( aParameter >= 30 ) && ( aParameter <= 37 ) )
+    else if ( ( parameter >= 30 ) && ( parameter <= 37 ) )
     {
       // Handle foreground color...
-      aAttributes.setForeground( aParameter - 29 );
+      attributes.setForeground( parameter - 29 );
     }
-    else if ( aParameter == 39 )
+    else if ( parameter == 39 )
     {
       // Default foreground color...
-      aAttributes.setForeground( 0 );
+      attributes.setForeground( 0 );
     }
-    else if ( ( aParameter >= 40 ) && ( aParameter <= 47 ) )
+    else if ( ( parameter >= 40 ) && ( parameter <= 47 ) )
     {
-      aAttributes.setBackground( aParameter - 39 );
+      attributes.setBackground( parameter - 39 );
     }
-    else if ( aParameter == 49 )
+    else if ( parameter == 49 )
     {
       // Default background color...
-      aAttributes.setBackground( 0 );
+      attributes.setBackground( 0 );
     }
-    else if ( aParameter > 0 )
+    else if ( parameter > 0 )
     {
-      log( "Unhandled attribute: " + aParameter );
+      log( "Unhandled attribute: " + parameter );
     }
   }
 
@@ -1801,10 +1821,10 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
    * 
    * @param aTermState
    */
-  private int handleIND( final int aIndex )
+  private int handleIND( final int index )
   {
-    int col = aIndex % getWidth();
-    int row = ( aIndex / getWidth() ) + 1;
+    int col = index % getWidth();
+    int row = ( index / getWidth() ) + 1;
 
     if ( row > getLastScrollLine() )
     {
@@ -1821,10 +1841,10 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
    * 
    * @param aTermState
    */
-  private int handleNEL( int aIndex )
+  private int handleNEL( int index )
   {
     int col = 0;
-    int row = ( aIndex / getWidth() ) + 1;
+    int row = ( index / getWidth() ) + 1;
 
     if ( row > getLastScrollLine() )
     {
@@ -1841,10 +1861,10 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
    * 
    * @param aTermState
    */
-  private int handleRI( int aIndex )
+  private int handleRI( int index )
   {
-    int col = aIndex % getWidth();
-    int row = ( aIndex / getWidth() ) - 1;
+    int col = index % getWidth();
+    int row = ( index / getWidth() ) - 1;
 
     if ( row < getFirstScrollLine() )
     {
@@ -1860,7 +1880,7 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
    */
   private void handleSPA()
   {
-    this.textAttributes.setProtected( true );
+    m_textAttributes.setProtected( true );
   }
 
   /**
@@ -1868,7 +1888,7 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
    */
   private void handleSS2()
   {
-    this.graphicSetState.overrideGL( 2 );
+    m_graphicSetState.overrideGL( 2 );
   }
 
   /**
@@ -1876,15 +1896,15 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
    */
   private void handleSS3()
   {
-    this.graphicSetState.overrideGL( 3 );
+    m_graphicSetState.overrideGL( 3 );
   }
 
   /**
    * @param aTermState
    */
-  private void handleTabSet( int aIndex )
+  private void handleTabSet( int index )
   {
-    getTabulator().set( ( aIndex % getWidth() ) );
+    getTabulator().set( ( index % getWidth() ) );
   }
 
   /**
@@ -1892,7 +1912,7 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
    */
   private int restoreCursor()
   {
-    return this.savedState.restore( this );
+    return m_savedState.restore( this );
   }
 
   /**
@@ -1900,21 +1920,21 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
    */
   private void saveCursor( int aIndex )
   {
-    this.savedState.store( this );
+    m_savedState.store( this );
   }
 
   /**
    * Send Device Attributes (Primary DA).
    */
-  private void sendDeviceAttributes( int aArg ) throws IOException
+  private void sendDeviceAttributes( int arg ) throws IOException
   {
-    if ( aArg != 0 )
+    if ( arg != 0 )
     {
-      log( "Unknown DA: " + aArg );
+      log( "Unknown DA: " + arg );
     }
     else
     {
-      if ( this.vt220parser.isVT52mode() )
+      if ( m_vt220parser.isVT52mode() )
       {
         // Send back that we're a VT52...
         writeResponse( ResponseType.ESC, "/Z" );
@@ -1930,15 +1950,15 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
   /**
    * Sets the compatibility level for this terminal.
    * 
-   * @param aLevel
+   * @param level
    *          &lt;= 1 equals to VT100 mode, &gt;= 2 equals to VT200 mode;
-   * @param aEightBitMode
+   * @param eightBitMode
    *          <code>true</code> if 8-bit controls are preferred (only in VT200
    *          mode), <code>false</code> if 7-bit controls are preferred.
    */
-  private void setConformanceLevel( int aLevel, boolean aEightBitMode )
+  private void setConformanceLevel( int level, boolean eightBitMode )
   {
-    if ( aLevel <= 1 )
+    if ( level <= 1 )
     {
       // @formatter:off
       /* VT100 mode:
@@ -1954,7 +1974,7 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
       softReset();
       set8bitMode( false );
     }
-    else if ( aLevel >= 2 )
+    else if ( level >= 2 )
     {
       // @formatter:off
       /* VT200 mode:
@@ -1964,24 +1984,24 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
        */
       // @formatter:on
       softReset();
-      set8bitMode( aEightBitMode );
+      set8bitMode( eightBitMode );
     }
   }
 
   /**
    * Sets the dimensions of the terminal frontend, in pixels.
    * 
-   * @param aWidth
+   * @param width
    *          the new width, in pixels;
-   * @param aHeight
+   * @param height
    *          the new height, in pixels.
    */
-  private void setDimensionsInPixels( int aWidth, int aHeight )
+  private void setDimensionsInPixels( int width, int height )
   {
     ITerminalFrontend frontend = getFrontend();
     if ( frontend != null )
     {
-      frontend.setSize( aWidth, aHeight );
+      frontend.setSize( width, height );
     }
   }
 
@@ -2016,9 +2036,9 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
     setErasureMode( true );
 
     // Sets all character sets (GL, G0, G1, G2 and G3) to ASCII
-    this.graphicSetState.resetState();
+    m_graphicSetState.resetState();
     // Turns off all character attributes (SGR)
-    this.textAttributes.resetAll();
+    m_textAttributes.resetAll();
 
     // Clears any cursor state information saved with save cursor (DECSC)
     saveCursor( getFirstAbsoluteIndex() );
@@ -2027,32 +2047,32 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
   /**
    * Writes a response according to a given type.
    * 
-   * @param aType
+   * @param type
    *          the type of response to write;
-   * @param aContent
+   * @param content
    *          the actual content to write.
    * @throws IOException
    *           in case of I/O problems writing the response.
    */
-  private void writeResponse( ResponseType aType, String aContent ) throws IOException
+  private void writeResponse( ResponseType type, String content ) throws IOException
   {
-    switch ( aType )
+    switch ( type )
     {
       case ESC:
-        writeResponse( "\033" );
+        write( "\033" );
         break;
 
       case OSC:
-        writeResponse( is8bitMode() ? Character.toString( VT220Parser.OSC ) : "\033]" );
+        write( is8bitMode() ? Character.toString( VT220Parser.OSC ) : "\033]" );
         break;
 
       case CSI:
-        writeResponse( is8bitMode() ? Character.toString( VT220Parser.CSI ) : "\033[" );
+        write( is8bitMode() ? Character.toString( VT220Parser.CSI ) : "\033[" );
         break;
 
       default:
-        throw new RuntimeException( "Unhandled response type: " + aType );
+        throw new RuntimeException( "Unhandled response type: " + type );
     }
-    writeResponse( aContent );
+    write( content );
   }
 }

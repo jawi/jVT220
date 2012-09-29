@@ -13,11 +13,11 @@ import nl.lxtreme.jvt220.terminal.ITerminal.ITextCell;
  * Provides an implementation of {@link ITextCell} that packs all its
  * information in a character and short value.
  */
-public class TextCell extends TextAttributes implements ITextCell
+final class TextCell extends TextAttributes implements ITextCell
 {
   // VARIABLES
 
-  private char ch;
+  private char m_ch;
 
   // CONSTRUCTORS
 
@@ -33,27 +33,27 @@ public class TextCell extends TextAttributes implements ITextCell
    * Creates a new {@link TextCell} instance with the given contents and
    * attributes.
    * 
-   * @param aChar
+   * @param ch
    *          the contents of this cell;
-   * @param aAttributes
+   * @param attributes
    *          the attributes of this cell.
    */
-  public TextCell( char aChar, short aAttributes )
+  public TextCell( char ch, short attributes )
   {
-    this.ch = aChar;
-    setAttributes( aAttributes );
+    m_ch = ch;
+    setAttributes( attributes );
   }
 
   /**
    * Creates a new {@link TextCell} instance as copy of the given text cell.
    * 
-   * @param aChell
+   * @param cell
    *          the cell to copy the content + attributes from, cannot be
    *          <code>null</code>.
    */
-  public TextCell( TextCell aCell )
+  public TextCell( TextCell cell )
   {
-    this( aCell.getChar(), aCell.getAttributes() );
+    this( cell.getChar(), cell.getAttributes() );
   }
 
   // METHODS
@@ -64,7 +64,7 @@ public class TextCell extends TextAttributes implements ITextCell
   @Override
   public char getChar()
   {
-    return this.ch;
+    return m_ch;
   }
 
   /**
@@ -73,6 +73,6 @@ public class TextCell extends TextAttributes implements ITextCell
   @Override
   public String toString()
   {
-    return "[" + this.ch + "]";
+    return "[" + m_ch + "]";
   }
 }

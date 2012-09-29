@@ -16,10 +16,10 @@ public class CursorImpl implements ICursor
 {
   // VARIABLES
 
-  private int blinkRate;
-  private boolean visible;
-  private int x;
-  private int y;
+  private int m_blinkRate;
+  private boolean m_visible;
+  private int m_x;
+  private int m_y;
 
   // CONSTRUCTORS
 
@@ -28,10 +28,10 @@ public class CursorImpl implements ICursor
    */
   public CursorImpl()
   {
-    this.blinkRate = 500;
-    this.visible = true;
-    this.x = 0;
-    this.y = 0;
+    m_blinkRate = 500;
+    m_visible = true;
+    m_x = 0;
+    m_y = 0;
   }
 
   // METHODS
@@ -45,10 +45,10 @@ public class CursorImpl implements ICursor
     try
     {
       CursorImpl clone = ( CursorImpl )super.clone();
-      clone.blinkRate = this.blinkRate;
-      clone.visible = this.visible;
-      clone.x = this.x;
-      clone.y = this.y;
+      clone.m_blinkRate = m_blinkRate;
+      clone.m_visible = m_visible;
+      clone.m_x = m_x;
+      clone.m_y = m_y;
       return clone;
     }
     catch ( CloneNotSupportedException e )
@@ -56,14 +56,14 @@ public class CursorImpl implements ICursor
       throw new RuntimeException( "Cloning not supported!?!" );
     }
   }
-  
+
   /**
    * {@inheritDoc}
    */
   @Override
   public int getBlinkRate()
   {
-    return this.blinkRate;
+    return m_blinkRate;
   }
 
   /**
@@ -72,7 +72,7 @@ public class CursorImpl implements ICursor
   @Override
   public int getX()
   {
-    return this.x;
+    return m_x;
   }
 
   /**
@@ -81,7 +81,7 @@ public class CursorImpl implements ICursor
   @Override
   public int getY()
   {
-    return this.y;
+    return m_y;
   }
 
   /**
@@ -90,37 +90,37 @@ public class CursorImpl implements ICursor
   @Override
   public boolean isVisible()
   {
-    return this.visible;
+    return m_visible;
   }
 
   /**
    * {@inheritDoc}
    */
   @Override
-  public void setBlinkRate( final int aRate )
+  public void setBlinkRate( final int rate )
   {
-    if ( aRate < 0 )
+    if ( rate < 0 )
     {
       throw new IllegalArgumentException( "Invalid blink rate!" );
     }
-    this.blinkRate = aRate;
+    m_blinkRate = rate;
   }
 
   /**
    * {@inheritDoc}
    */
   @Override
-  public void setVisible( final boolean aVisible )
+  public void setVisible( final boolean visible )
   {
-    this.visible = aVisible;
+    m_visible = visible;
   }
 
   /**
    * {@inheritDoc}
    */
-  final void setPosition( final int aX, final int aY )
+  final void setPosition( final int x, final int y )
   {
-    this.x = aX;
-    this.y = aY;
+    m_x = x;
+    m_y = y;
   }
 }

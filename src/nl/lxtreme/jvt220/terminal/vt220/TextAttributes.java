@@ -23,7 +23,7 @@ class TextAttributes
 
   // VARIABLES
 
-  private short attr;
+  private short m_attr;
 
   // METHODS
 
@@ -31,20 +31,30 @@ class TextAttributes
    * {@inheritDoc}
    */
   @Override
-  public boolean equals( Object aObject )
+  public boolean equals( Object object )
   {
-    if ( this == aObject )
+    if ( this == object )
     {
       return true;
     }
 
-    if ( ( aObject == null ) || getClass() != aObject.getClass() )
+    if ( ( object == null ) || getClass() != object.getClass() )
     {
       return false;
     }
 
-    final TextAttributes other = ( TextAttributes )aObject;
-    return ( this.attr == other.attr );
+    final TextAttributes other = ( TextAttributes )object;
+    return ( m_attr == other.m_attr );
+  }
+
+  /**
+   * Returns the encoded attributes.
+   * 
+   * @return the encoded attributes as short value.
+   */
+  public short getAttributes()
+  {
+    return m_attr;
   }
 
   /**
@@ -52,7 +62,7 @@ class TextAttributes
    */
   public int getBackground()
   {
-    int bg = ( ( this.attr >> 5 ) & COLOR_MASK );
+    int bg = ( ( m_attr >> 5 ) & COLOR_MASK );
     return bg;
   }
 
@@ -61,7 +71,7 @@ class TextAttributes
    */
   public int getForeground()
   {
-    int fg = ( this.attr & COLOR_MASK );
+    int fg = ( m_attr & COLOR_MASK );
     return fg;
   }
 
@@ -73,7 +83,7 @@ class TextAttributes
   {
     final int prime = 31;
     int result = 1;
-    result = prime * result + this.attr;
+    result = prime * result + m_attr;
     return result;
   }
 
@@ -82,7 +92,7 @@ class TextAttributes
    */
   public boolean isBold()
   {
-    return ( this.attr & BOLD_MASK ) != 0;
+    return ( m_attr & BOLD_MASK ) != 0;
   }
 
   /**
@@ -90,7 +100,7 @@ class TextAttributes
    */
   public boolean isHidden()
   {
-    return ( this.attr & HIDDEN_MASK ) != 0;
+    return ( m_attr & HIDDEN_MASK ) != 0;
   }
 
   /**
@@ -98,7 +108,7 @@ class TextAttributes
    */
   public boolean isItalic()
   {
-    return ( this.attr & ITALIC_MASK ) != 0;
+    return ( m_attr & ITALIC_MASK ) != 0;
   }
 
   /**
@@ -106,7 +116,7 @@ class TextAttributes
    */
   public boolean isProtected()
   {
-    return ( this.attr & PROTECTED_MASK ) != 0;
+    return ( m_attr & PROTECTED_MASK ) != 0;
   }
 
   /**
@@ -114,7 +124,7 @@ class TextAttributes
    */
   public boolean isReverse()
   {
-    return ( this.attr & REVERSE_MASK ) != 0;
+    return ( m_attr & REVERSE_MASK ) != 0;
   }
 
   /**
@@ -122,7 +132,7 @@ class TextAttributes
    */
   public boolean isUnderline()
   {
-    return ( this.attr & UNDERLINE_MASK ) != 0;
+    return ( m_attr & UNDERLINE_MASK ) != 0;
   }
 
   /**
@@ -131,7 +141,7 @@ class TextAttributes
    */
   public void reset()
   {
-    this.attr &= ~( ( 1 << 10 ) - 1 );
+    m_attr &= ~( ( 1 << 10 ) - 1 );
   }
 
   /**
@@ -139,118 +149,123 @@ class TextAttributes
    */
   public void resetAll()
   {
-    this.attr = 0;
+    m_attr = 0;
+  }
+
+  /**
+   * Directly sets the attributes as encoded value.
+   * 
+   * @param attributes
+   *          the attributes to set.
+   */
+  public void setAttributes( short attributes )
+  {
+    m_attr = attributes;
   }
 
   /**
    * Sets the background color.
    * 
-   * @param aIndex
+   * @param index
    *          the index of the background color, >= 0 && < 32.
    */
-  public void setBackground( int aIndex )
+  public void setBackground( int index )
   {
-    int bg = ( aIndex & COLOR_MASK ) << 5;
-    this.attr &= 0xFE1F; // clear bg color bits...
-    this.attr |= bg;
+    int bg = ( index & COLOR_MASK ) << 5;
+    m_attr &= 0xFE1F; // clear bg color bits...
+    m_attr |= bg;
   }
 
   /**
-   * @param aEnabled
+   * @param enable
    *          <code>true</code> to enable the bold representation,
    *          <code>false</code> to disable it.
    */
-  public void setBold( boolean aEnabled )
+  public void setBold( boolean enable )
   {
-    setAttrBit( aEnabled, BOLD_MASK );
+    setAttrBit( enable, BOLD_MASK );
   }
 
   /**
    * Sets the foreground color.
    * 
-   * @param aIndex
+   * @param index
    *          the index of the foreground color, >= 0 && < 32.
    */
-  public void setForeground( int aIndex )
+  public void setForeground( int index )
   {
-    int fg = aIndex & COLOR_MASK;
-    this.attr &= 0xFFE0; // clear fg color bits...
-    this.attr |= fg;
+    int fg = index & COLOR_MASK;
+    m_attr &= 0xFFE0; // clear fg color bits...
+    m_attr |= fg;
   }
 
   /**
-   * @param aEnabled
+   * @param enable
+   *          <code>true</code> to enable the hidden property,
+   *          <code>false</code> to disable it.
    */
-  public void setHidden( boolean aEnabled )
+  public void setHidden( boolean enable )
   {
-    setAttrBit( aEnabled, HIDDEN_MASK );
+    setAttrBit( enable, HIDDEN_MASK );
   }
 
   /**
-   * @param aEnabled
+   * @param enable
+   *          <code>true</code> to enable the italic property,
+   *          <code>false</code> to disable it.
    */
-  public void setItalic( boolean aEnabled )
+  public void setItalic( boolean enable )
   {
-    setAttrBit( aEnabled, ITALIC_MASK );
+    setAttrBit( enable, ITALIC_MASK );
   }
 
   /**
-   * @param aEnabled
+   * @param enable
+   *          <code>true</code> to enable the protected property,
+   *          <code>false</code> to disable it.
    */
-  public void setProtected( boolean aEnabled )
+  public void setProtected( boolean enable )
   {
-    setAttrBit( aEnabled, PROTECTED_MASK );
+    setAttrBit( enable, PROTECTED_MASK );
   }
 
   /**
-   * @param aEnabled
+   * @param enable
+   *          <code>true</code> to enable the reverse property,
+   *          <code>false</code> to disable it.
    */
-  public void setReverse( boolean aEnabled )
+  public void setReverse( boolean enable )
   {
-    setAttrBit( aEnabled, REVERSE_MASK );
+    setAttrBit( enable, REVERSE_MASK );
   }
 
   /**
-   * @param aEnabled
+   * @param enable
+   *          <code>true</code> to enable the underline property,
+   *          <code>false</code> to disable it.
    */
-  public void setUnderline( boolean aEnabled )
+  public void setUnderline( boolean enable )
   {
-    setAttrBit( aEnabled, UNDERLINE_MASK );
-  }
-
-  /**
-   * @return
-   */
-  short getAttributes()
-  {
-    return this.attr;
-  }
-
-  /**
-   * @param aAttributes
-   */
-  void setAttributes( short aAttributes )
-  {
-    this.attr = aAttributes;
+    setAttrBit( enable, UNDERLINE_MASK );
   }
 
   /**
    * Sets or resets the bit in the attributes denoted by the given mask.
    * 
-   * @param aEnabled
+   * @param enable
    *          <code>true</code> to set the bit, <code>false</code> to reset it;
-   * @param aMask
+   * @param mask
    *          the mask of the bit to set or reset.
    */
-  private void setAttrBit( boolean aEnabled, int aMask )
+  private void setAttrBit( boolean enable, int mask )
   {
-    if ( aEnabled )
+    if ( enable )
     {
-      this.attr |= aMask;
+      m_attr |= mask;
     }
     else
     {
-      this.attr &= ~aMask;
+      m_attr &= ~mask;
     }
   }
 }

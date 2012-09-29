@@ -38,46 +38,46 @@ public final class VT220Parser
     /**
      * Called when a plain (non C0/C1) character is found.
      * 
-     * @param aChar
+     * @param ch
      *          the found character, >= 32.
      * @throws IOException
      *           in case of I/O problems handling the given character.
      */
-    void handleCharacter( char aChar ) throws IOException;
+    void handleCharacter( char ch ) throws IOException;
 
     /**
      * Called when a C0 control character is found.
      * 
-     * @param aControlChar
+     * @param controlChar
      *          the C0 control character, >= 0 && < 32.
      * @throws IOException
      *           in case of I/O problems handling the given control character.
      */
-    void handleControl( char aControlChar ) throws IOException;
+    void handleControl( char controlChar ) throws IOException;
 
     /**
      * Called when a complete CSI is found.
      * 
-     * @param aType
+     * @param type
      *          the type of CSI that was found;
-     * @param aParameters
+     * @param parameters
      *          the (optional) list of parameters for this CSI.
      * @throws IOException
      *           in case of I/O problems handling the given CSI.
      */
-    void handleCSI( CSIType aType, int... aParameters ) throws IOException;
+    void handleCSI( CSIType type, int... parameters ) throws IOException;
 
     /**
      * Called when a non-CSI escape is found.
      * 
-     * @param aDesignator
+     * @param designator
      *          the designator of the escape sequence;
-     * @param aParameters
+     * @param parameters
      *          the (optional) parameters for the escape sequence.
      * @throws IOException
      *           in case of I/O problems handling the given escape sequence.
      */
-    void handleESC( char aDesignator, int... aParameters ) throws IOException;
+    void handleESC( char designator, int... parameters ) throws IOException;
   }
 
   /**
@@ -126,27 +126,27 @@ public final class VT220Parser
 
   // VARIABLES
 
-  private final int logLevel;
-  private final Stack<Object> parameters;
+  private final Stack<Object> m_parameters;
 
-  private CharSequence text;
-  private int i;
-  private int lastParsePos;
-  private int lastWrittenChar;
-  private ParserState state;
-  private boolean vt52mode;
-  private char designator; 
+  private int m_logLevel;
+  private CharSequence m_text;
+  private int m_i;
+  private int m_lastParsePos;
+  private int m_lastWrittenChar;
+  private ParserState m_state;
+  private boolean m_vt52mode;
+  private char m_designator;
 
   // CONSTRUCTORS
 
   /**
    * Creates a new {@link VT220Parser} instance.
    */
-  public VT220Parser( int aLogLevel )
+  public VT220Parser()
   {
-    this.logLevel = aLogLevel;
-    this.parameters = new Stack<Object>();
-    this.vt52mode = false;
+    m_parameters = new Stack<Object>();
+    m_vt52mode = false;
+    m_logLevel = 0;
   }
 
   // METHODS
@@ -159,34 +159,34 @@ public final class VT220Parser
    */
   public boolean isVT52mode()
   {
-    return this.vt52mode;
+    return m_vt52mode;
   }
 
   /**
    * Parses the contained text and invokes the callback methods on the given
    * handler.
    * 
-   * @param aText
+   * @param text
    *          the text (as {@link CharSequence}) to parse, cannot be
    *          <code>null</code>;
-   * @param aHandler
+   * @param handler
    *          the handler to use as callback, cannot be <code>null</code>.
    * @throws IOException
    *           in case of I/O problems parsing the input.
    */
-  public int parse( CharSequence aText, VT220ParserHandler aHandler ) throws IOException
+  public int parse( CharSequence text, VT220ParserHandler handler ) throws IOException
   {
-    this.text = aText;
-    this.i = 0;
-    this.lastParsePos = 0;
-    this.parameters.clear();
-    this.state = this.vt52mode ? ParserState.VT52 : ParserState.VT100;
-    this.lastWrittenChar = -1;
+    m_text = text;
+    m_i = 0;
+    m_lastParsePos = 0;
+    m_parameters.clear();
+    m_state = m_vt52mode ? ParserState.VT52 : ParserState.VT100;
+    m_lastWrittenChar = -1;
 
     int c;
     while ( ( c = nextChar() ) != -1 )
     {
-      switch ( this.state )
+      switch ( m_state )
       {
         case DCS:
         case OSC:
@@ -209,7 +209,7 @@ public final class VT220Parser
             case ST:
             {
               // 8-bit sequence...
-              this.state = this.vt52mode ? ParserState.VT52 : ParserState.VT100;
+              m_state = m_vt52mode ? ParserState.VT52 : ParserState.VT100;
               eightBitSequenceFound();
               break;
             }
@@ -230,13 +230,13 @@ public final class VT220Parser
               {
                 // (SL) Scroll Left N Character(s) (default = 1)
                 int count = getIntegerParameter( 1 );
-                aHandler.handleCSI( CSIType.SL, count );
+                handler.handleCSI( CSIType.SL, count );
               }
               else
               {
                 // (ICH) Insert N (Blank) Character(s) (default = 1)
                 int count = getIntegerParameter( 1 );
-                aHandler.handleCSI( CSIType.ICH, count );
+                handler.handleCSI( CSIType.ICH, count );
               }
               csiFound();
               break;
@@ -248,14 +248,14 @@ public final class VT220Parser
               {
                 // (SR) Scroll Right N Character(s) (default = 1)
                 int count = getIntegerParameter( 1 );
-                aHandler.handleCSI( CSIType.SR, count );
+                handler.handleCSI( CSIType.SR, count );
               }
               else
               {
                 // (CUU) Moves the cursor up N lines in the same column. The
                 // cursor stops at the top margin.
                 int n = getIntegerParameter( 1 );
-                aHandler.handleCSI( CSIType.CUU, n );
+                handler.handleCSI( CSIType.CUU, n );
               }
               csiFound();
               break;
@@ -266,7 +266,7 @@ public final class VT220Parser
               // (CUD) Moves the cursor down N lines in the same column. The
               // cursor stops at the bottom margin.
               int n = getIntegerParameter( 1 );
-              aHandler.handleCSI( CSIType.CUD, n );
+              handler.handleCSI( CSIType.CUD, n );
               csiFound();
               break;
             }
@@ -276,7 +276,7 @@ public final class VT220Parser
               // (CUF) Moves the cursor right N columns. The cursor stops at
               // the right margin.
               int n = getIntegerParameter( 1 );
-              aHandler.handleCSI( CSIType.CUF, n );
+              handler.handleCSI( CSIType.CUF, n );
               csiFound();
               break;
             }
@@ -286,7 +286,7 @@ public final class VT220Parser
               // (CUB) Moves the cursor left N columns. The cursor stops at the
               // left margin.
               int n = getIntegerParameter( 1 );
-              aHandler.handleCSI( CSIType.CUB, n );
+              handler.handleCSI( CSIType.CUB, n );
               csiFound();
               break;
             }
@@ -295,7 +295,7 @@ public final class VT220Parser
             {
               // (CNL) Move cursor down the indicated # of rows, to column 1.
               int n = getIntegerParameter( 1 );
-              aHandler.handleCSI( CSIType.CNL, n );
+              handler.handleCSI( CSIType.CNL, n );
               csiFound();
               break;
             }
@@ -304,7 +304,7 @@ public final class VT220Parser
             {
               // (CPL) Move cursor up the indicated # of rows, to column 1.
               int n = getIntegerParameter( 1 );
-              aHandler.handleCSI( CSIType.CPL, n );
+              handler.handleCSI( CSIType.CPL, n );
               csiFound();
               break;
             }
@@ -315,7 +315,7 @@ public final class VT220Parser
               // (HPA) Character Position Absolute [column] (default = [row,1])
               // (CHA) Cursor Character Absolute [column] (default = [row,1])
               int x = getIntegerParameter( 1 );
-              aHandler.handleCSI( CSIType.CHA, x );
+              handler.handleCSI( CSIType.CHA, x );
               csiFound();
               break;
             }
@@ -326,7 +326,7 @@ public final class VT220Parser
               // (CUP) Move cursor to [row, column]...
               int row = getIntegerParameter( 1 );
               int col = getIntegerParameter( 1 );
-              aHandler.handleCSI( CSIType.CUP, row, col );
+              handler.handleCSI( CSIType.CUP, row, col );
               csiFound();
               break;
             }
@@ -335,7 +335,7 @@ public final class VT220Parser
             {
               // (CHT) Cursor Forward Tabulation P s tab stops (default = 1)
               int n = getIntegerParameter( 1 );
-              aHandler.handleCSI( CSIType.CHT, n );
+              handler.handleCSI( CSIType.CHT, n );
               csiFound();
               break;
             }
@@ -346,11 +346,11 @@ public final class VT220Parser
               int mode = getIntegerParameter( 0 );
               if ( isDecSpecific() )
               {
-                aHandler.handleCSI( CSIType.DECSED, mode );
+                handler.handleCSI( CSIType.DECSED, mode );
               }
               else
               {
-                aHandler.handleCSI( CSIType.ED, mode );
+                handler.handleCSI( CSIType.ED, mode );
               }
               csiFound();
               break;
@@ -362,11 +362,11 @@ public final class VT220Parser
               int mode = getIntegerParameter( 0 );
               if ( isDecSpecific() )
               {
-                aHandler.handleCSI( CSIType.DECSEL, mode );
+                handler.handleCSI( CSIType.DECSEL, mode );
               }
               else
               {
-                aHandler.handleCSI( CSIType.EL, mode );
+                handler.handleCSI( CSIType.EL, mode );
               }
               csiFound();
               break;
@@ -376,7 +376,7 @@ public final class VT220Parser
             {
               // (IL) Inserts N lines at the cursor.
               int lines = getIntegerParameter( 1 );
-              aHandler.handleCSI( CSIType.IL, lines );
+              handler.handleCSI( CSIType.IL, lines );
               csiFound();
               break;
             }
@@ -385,7 +385,7 @@ public final class VT220Parser
             {
               // (DL) Deletes N lines starting at the line with the cursor.
               int lines = getIntegerParameter( 1 );
-              aHandler.handleCSI( CSIType.DL, lines );
+              handler.handleCSI( CSIType.DL, lines );
               csiFound();
               break;
             }
@@ -394,7 +394,7 @@ public final class VT220Parser
             {
               // (DCH) Delete N Character(s) (default = 1)
               int count = getIntegerParameter( 1 );
-              aHandler.handleCSI( CSIType.DCH, count );
+              handler.handleCSI( CSIType.DCH, count );
               csiFound();
               break;
             }
@@ -403,7 +403,7 @@ public final class VT220Parser
             {
               // (SU) Scroll N lines up...
               int lines = getIntegerParameter( 1 );
-              aHandler.handleCSI( CSIType.SU, lines );
+              handler.handleCSI( CSIType.SU, lines );
               csiFound();
               break;
             }
@@ -412,7 +412,7 @@ public final class VT220Parser
             {
               // (SD) Scroll N lines down...
               int lines = getIntegerParameter( 1 );
-              aHandler.handleCSI( CSIType.SD, lines );
+              handler.handleCSI( CSIType.SD, lines );
               csiFound();
               break;
             }
@@ -421,7 +421,7 @@ public final class VT220Parser
             {
               // (ECH) Erase N Character(s) (default = 1)
               int n = getIntegerParameter( 1 );
-              aHandler.handleCSI( CSIType.ECH, n );
+              handler.handleCSI( CSIType.ECH, n );
               csiFound();
               break;
             }
@@ -430,7 +430,7 @@ public final class VT220Parser
             {
               // (CBT) Cursor Backward Tabulation N tab stops (default = 1)
               int n = getIntegerParameter( 1 );
-              aHandler.handleCSI( CSIType.CBT, n );
+              handler.handleCSI( CSIType.CBT, n );
               csiFound();
               break;
             }
@@ -441,7 +441,7 @@ public final class VT220Parser
             {
               // (HPR) Move cursor right the indicated # of columns.
               int count = getIntegerParameter( 1 );
-              aHandler.handleCSI( CSIType.HPR, count );
+              handler.handleCSI( CSIType.HPR, count );
               csiFound();
               break;
             }
@@ -449,11 +449,11 @@ public final class VT220Parser
             case 'b':
             {
               // (REP) Repeat the last written character N times
-              if ( this.lastWrittenChar >= 0 )
+              if ( m_lastWrittenChar >= 0 )
               {
                 int count = getIntegerParameter( 1 );
 
-                aHandler.handleCSI( CSIType.REP, count, this.lastWrittenChar );
+                handler.handleCSI( CSIType.REP, count, m_lastWrittenChar );
               }
               csiFound();
               break;
@@ -463,13 +463,13 @@ public final class VT220Parser
             {
               // Send Device Attributes (Primary/secondary DA)
               int option = getIntegerParameter( 0 );
-              if ( this.designator == '>' ) 
+              if ( m_designator == '>' )
               {
-                aHandler.handleCSI( CSIType.SecondaryDA, option );
+                handler.handleCSI( CSIType.SecondaryDA, option );
               }
               else
               {
-                aHandler.handleCSI( CSIType.PrimaryDA, option );
+                handler.handleCSI( CSIType.PrimaryDA, option );
               }
               csiFound();
               break;
@@ -479,7 +479,7 @@ public final class VT220Parser
             {
               // (VPA) Line Position Absolute [row] (default = [1,column])
               int row = getIntegerParameter( 1 );
-              aHandler.handleCSI( CSIType.VPA, row );
+              handler.handleCSI( CSIType.VPA, row );
               csiFound();
               break;
             }
@@ -489,7 +489,7 @@ public final class VT220Parser
               // (VPR) Move cursor down the indicated N of columns (default =
               // 1).
               int n = getIntegerParameter( 1 );
-              aHandler.handleCSI( CSIType.VPR, n );
+              handler.handleCSI( CSIType.VPR, n );
               csiFound();
               break;
             }
@@ -500,7 +500,7 @@ public final class VT220Parser
             {
               // (TBC) Tab clear
               int arg = getIntegerParameter( 0 );
-              aHandler.handleCSI( CSIType.TBC, arg );
+              handler.handleCSI( CSIType.TBC, arg );
               csiFound();
               break;
             }
@@ -511,11 +511,11 @@ public final class VT220Parser
               int arg = getIntegerParameter( 0 );
               if ( isDecSpecific() )
               {
-                aHandler.handleCSI( CSIType.DECSET, arg );
+                handler.handleCSI( CSIType.DECSET, arg );
               }
               else
               {
-                aHandler.handleCSI( CSIType.SM, arg );
+                handler.handleCSI( CSIType.SM, arg );
               }
               csiFound();
               break;
@@ -527,11 +527,11 @@ public final class VT220Parser
               int arg = getIntegerParameter( 0 );
               if ( isDecSpecific() )
               {
-                aHandler.handleCSI( CSIType.DECSMC, arg );
+                handler.handleCSI( CSIType.DECSMC, arg );
               }
               else
               {
-                aHandler.handleCSI( CSIType.MC, arg );
+                handler.handleCSI( CSIType.MC, arg );
               }
               csiFound();
               break;
@@ -541,7 +541,7 @@ public final class VT220Parser
             {
               // (HPB) Character position backward N positions (default = 1)
               int n = getIntegerParameter( 1 );
-              aHandler.handleCSI( CSIType.HPB, n );
+              handler.handleCSI( CSIType.HPB, n );
               csiFound();
               break;
             }
@@ -550,7 +550,7 @@ public final class VT220Parser
             {
               // (VPB) Line position backward N lines (default = 1)
               int n = getIntegerParameter( 1 );
-              aHandler.handleCSI( CSIType.VPB, n );
+              handler.handleCSI( CSIType.VPB, n );
               csiFound();
               break;
             }
@@ -561,17 +561,17 @@ public final class VT220Parser
               int arg = getIntegerParameter( 0 );
               if ( isDecSpecific() )
               {
-                aHandler.handleCSI( CSIType.DECRST, arg );
+                handler.handleCSI( CSIType.DECRST, arg );
                 if ( arg == 2 )
                 {
                   // (DECANM) Set VT52 mode...
-                  this.state = ParserState.VT52;
-                  this.vt52mode = true;
+                  m_state = ParserState.VT52;
+                  m_vt52mode = true;
                 }
               }
               else
               {
-                aHandler.handleCSI( CSIType.RM, arg );
+                handler.handleCSI( CSIType.RM, arg );
               }
               csiFound();
               break;
@@ -581,7 +581,7 @@ public final class VT220Parser
             {
               // (SGR) Turn on/off character attributes ...
               int[] args = getIntegerParameters( 0 );
-              aHandler.handleCSI( CSIType.SGR, args );
+              handler.handleCSI( CSIType.SGR, args );
               csiFound();
               break;
             }
@@ -592,11 +592,11 @@ public final class VT220Parser
               int arg = getIntegerParameter( 0 );
               if ( isDecSpecific() )
               {
-                aHandler.handleCSI( CSIType.DECSDSR, arg );
+                handler.handleCSI( CSIType.DECSDSR, arg );
               }
               else
               {
-                aHandler.handleCSI( CSIType.DSR, arg );
+                handler.handleCSI( CSIType.DSR, arg );
               }
               csiFound();
               break;
@@ -607,14 +607,14 @@ public final class VT220Parser
               if ( lb() == '!' )
               {
                 // (DECSTR) Soft terminal reset
-                aHandler.handleCSI( CSIType.DECSTR );
+                handler.handleCSI( CSIType.DECSTR );
               }
               else if ( lb() == '"' )
               {
                 // (DECSCL) Set conformance level
                 int arg1 = getIntegerParameter( 0 );
                 int arg2 = getIntegerParameter( 0 );
-                aHandler.handleCSI( CSIType.DECSCL, arg1, arg2 );
+                handler.handleCSI( CSIType.DECSCL, arg1, arg2 );
               }
               csiFound();
               break;
@@ -626,7 +626,7 @@ public final class VT220Parser
               {
                 // (DECSCA) Select character protection attribute
                 int arg = getIntegerParameter( 0 );
-                aHandler.handleCSI( CSIType.DECSCA, arg );
+                handler.handleCSI( CSIType.DECSCA, arg );
               }
               csiFound();
               break;
@@ -638,7 +638,7 @@ public final class VT220Parser
               {
                 // (DECCARA) Change Attributes in Rectangular Area
                 int[] args = getIntegerParameters();
-                aHandler.handleCSI( CSIType.DECCARA, args );
+                handler.handleCSI( CSIType.DECCARA, args );
               }
               else if ( isDecSpecific() )
               {
@@ -646,7 +646,7 @@ public final class VT220Parser
                 // previously saved is restored. N1..Nn values are the same as
                 // for DECSET.
                 int[] args = getIntegerParameters();
-                aHandler.handleCSI( CSIType.RestoreDECPM, args );
+                handler.handleCSI( CSIType.RestoreDECPM, args );
               }
               else
               {
@@ -654,7 +654,7 @@ public final class VT220Parser
                 // size of window)
                 int top = getIntegerParameter( 1 );
                 int bottom = getIntegerParameter( 0 );
-                aHandler.handleCSI( CSIType.DECSTBM, top, bottom );
+                handler.handleCSI( CSIType.DECSTBM, top, bottom );
               }
               csiFound();
               break;
@@ -667,7 +667,7 @@ public final class VT220Parser
               if ( isDecSpecific() )
               {
                 int[] args = getIntegerParameters();
-                aHandler.handleCSI( CSIType.SaveDECPM, args );
+                handler.handleCSI( CSIType.SaveDECPM, args );
               }
               csiFound();
               break;
@@ -679,13 +679,13 @@ public final class VT220Parser
               {
                 // (DECRARA) Reverse Attributes in Rectangular Area
                 int[] args = getIntegerParameters();
-                aHandler.handleCSI( CSIType.DECRARA, args );
+                handler.handleCSI( CSIType.DECRARA, args );
               }
               else
               {
                 // dtterm window manipulation; ignored...
-                  int[] args = getIntegerParameters();
-                  aHandler.handleCSI( CSIType.WindowManipulation, args );
+                int[] args = getIntegerParameters();
+                handler.handleCSI( CSIType.WindowManipulation, args );
               }
               csiFound();
               break;
@@ -697,7 +697,7 @@ public final class VT220Parser
               {
                 // (DECCRA) Copy Rectangular Area
                 int[] args = getIntegerParameters();
-                aHandler.handleCSI( CSIType.DECCRA, args );
+                handler.handleCSI( CSIType.DECCRA, args );
               }
               csiFound();
               break;
@@ -709,7 +709,7 @@ public final class VT220Parser
               {
                 // (DECEFR) Enable Filter Rectangle
                 int[] args = getIntegerParameters();
-                aHandler.handleCSI( CSIType.DECEFR, args );
+                handler.handleCSI( CSIType.DECEFR, args );
               }
               csiFound();
               break;
@@ -721,13 +721,13 @@ public final class VT220Parser
               {
                 // (DECFRA) Fill Rectangular Area
                 int[] args = getIntegerParameters();
-                aHandler.handleCSI( CSIType.DECFRA, args );
+                handler.handleCSI( CSIType.DECFRA, args );
               }
               else
               {
                 // (DECREQTPARM) Request Terminal Parameters
                 int arg = getIntegerParameter( 0 );
-                aHandler.handleCSI( CSIType.DECREQTPARM, arg );
+                handler.handleCSI( CSIType.DECREQTPARM, arg );
               }
               csiFound();
               break;
@@ -740,13 +740,13 @@ public final class VT220Parser
                 // (DECELR) Enable Locator Reporting
                 int arg1 = getIntegerParameter( 0 );
                 int arg2 = getIntegerParameter( 0 );
-                aHandler.handleCSI( CSIType.DECELR, arg1, arg2 );
+                handler.handleCSI( CSIType.DECELR, arg1, arg2 );
               }
               else if ( lb() == '$' )
               {
                 // (DECERA) Erase Rectangular Area
                 int[] args = getIntegerParameters();
-                aHandler.handleCSI( CSIType.DECERA, args );
+                handler.handleCSI( CSIType.DECERA, args );
               }
               csiFound();
               break;
@@ -758,13 +758,13 @@ public final class VT220Parser
               {
                 // (DECSLE) Select Locator Events
                 int[] args = getIntegerParameters();
-                aHandler.handleCSI( CSIType.DECSLE, args );
+                handler.handleCSI( CSIType.DECSLE, args );
               }
               else if ( lb() == '$' )
               {
                 // (DECSERA) Selective Erase Rectangular Area
                 int[] args = getIntegerParameters();
-                aHandler.handleCSI( CSIType.DECSERA, args );
+                handler.handleCSI( CSIType.DECSERA, args );
               }
               csiFound();
               break;
@@ -776,7 +776,7 @@ public final class VT220Parser
               {
                 // (DECRQLP) Request Locator Position
                 int arg = getIntegerParameter( 0 );
-                aHandler.handleCSI( CSIType.DECRQLP, arg );
+                handler.handleCSI( CSIType.DECRQLP, arg );
               }
               csiFound();
               break;
@@ -821,7 +821,7 @@ public final class VT220Parser
             case '$':
             {
               // Additional selectors; used in some CSIs...
-              this.designator = ( char )c;
+              m_designator = ( char )c;
               break;
             }
 
@@ -829,12 +829,12 @@ public final class VT220Parser
               // Unknown; handle as C0 control character or plain text...
               if ( c < SPACE )
               {
-                aHandler.handleControl( ( char )c );
+                handler.handleControl( ( char )c );
               }
               else
               {
-                this.lastWrittenChar = c;
-                aHandler.handleCharacter( ( char )c );
+                m_lastWrittenChar = c;
+                handler.handleCharacter( ( char )c );
               }
               break;
           }
@@ -842,37 +842,37 @@ public final class VT220Parser
 
         case ESC:
         {
-          if ( this.vt52mode )
+          if ( m_vt52mode )
           {
             // Handle VT52 sequences...
             switch ( c )
             {
               case CAN:
                 // Cancel current operation...
-                this.state = ParserState.VT52;
+                m_state = ParserState.VT52;
                 break;
 
               case 'A':
                 // Cursor UP
-                aHandler.handleCSI( CSIType.CUU, 1 );
+                handler.handleCSI( CSIType.CUU, 1 );
                 escSequenceFound();
                 break;
 
               case 'B':
                 // Cursor down
-                aHandler.handleCSI( CSIType.CUD, 1 );
+                handler.handleCSI( CSIType.CUD, 1 );
                 escSequenceFound();
                 break;
 
               case 'C':
                 // Cursor right
-                aHandler.handleCSI( CSIType.CUF, 1 );
+                handler.handleCSI( CSIType.CUF, 1 );
                 escSequenceFound();
                 break;
 
               case 'D':
                 // Cursor left
-                aHandler.handleCSI( CSIType.CUB, 1 );
+                handler.handleCSI( CSIType.CUB, 1 );
                 escSequenceFound();
                 break;
 
@@ -888,25 +888,25 @@ public final class VT220Parser
 
               case 'H':
                 // Move cursor to the home position
-                aHandler.handleCSI( CSIType.CUP, 1, 1 );
+                handler.handleCSI( CSIType.CUP, 1, 1 );
                 escSequenceFound();
                 break;
 
               case 'I':
                 // Reverse line feed / Reverse index
-                aHandler.handleESC( 'M' );
+                handler.handleESC( 'M' );
                 escSequenceFound();
                 break;
 
               case 'J':
                 // Erase from cursor to end of screen
-                aHandler.handleCSI( CSIType.ED, 0 );
+                handler.handleCSI( CSIType.ED, 0 );
                 escSequenceFound();
                 break;
 
               case 'K':
                 // Erase from cursor to end of line
-                aHandler.handleCSI( CSIType.EL, 0 );
+                handler.handleCSI( CSIType.EL, 0 );
                 escSequenceFound();
                 break;
 
@@ -919,26 +919,26 @@ public final class VT220Parser
                   if ( la() != CAN )
                   {
                     col = Math.max( 0, nextChar() - 32 );
-                    aHandler.handleCSI( CSIType.CUP, row + 1, col + 1 );
+                    handler.handleCSI( CSIType.CUP, row + 1, col + 1 );
                     escSequenceFound();
                   }
                   else
                   {
                     // Move to row only...
-                    aHandler.handleCSI( CSIType.CUP, row + 1, 1 );
+                    handler.handleCSI( CSIType.CUP, row + 1, 1 );
                     escSequenceFound();
                   }
                 }
                 else
                 {
                   // Cancel...
-                  this.state = ParserState.VT52;
+                  m_state = ParserState.VT52;
                 }
                 break;
 
               case 'Z':
                 // Identify
-                aHandler.handleESC( 'Z' );
+                handler.handleESC( 'Z' );
                 escSequenceFound();
                 break;
 
@@ -954,8 +954,8 @@ public final class VT220Parser
 
               case '<':
                 // Exit VT52 mode
-                this.state = ParserState.VT100;
-                this.vt52mode = false;
+                m_state = ParserState.VT100;
+                m_vt52mode = false;
                 escSequenceFound();
                 break;
 
@@ -972,13 +972,13 @@ public final class VT220Parser
             {
               case '[':
                 // 7-bit sequence...
-                this.state = ParserState.CSI;
-                this.parameters.clear();
+                m_state = ParserState.CSI;
+                m_parameters.clear();
                 break;
 
               case '_':
                 // 7-bit sequence...
-                this.state = ParserState.APC;
+                m_state = ParserState.APC;
                 break;
 
               case '\\':
@@ -987,24 +987,24 @@ public final class VT220Parser
 
               case ']':
                 // 7-bit sequence...
-                this.state = ParserState.OSC;
+                m_state = ParserState.OSC;
                 break;
 
               case '^':
                 // 7-bit sequence...
-                this.state = ParserState.PM;
+                m_state = ParserState.PM;
                 break;
 
               case 'P':
                 // 7-bit sequence...
-                this.state = ParserState.DCS;
+                m_state = ParserState.DCS;
                 break;
 
               case 'X':
                 // 7-bit sequence...
-                this.state = ParserState.SOS;
+                m_state = ParserState.SOS;
                 break;
-                
+
               case 'D': // IND
               case 'E': // NEL
               case 'H': // TabSet
@@ -1022,7 +1022,7 @@ public final class VT220Parser
               case '|': // LS3R
               case '}': // LS2R
               case '~': // LS1R
-                aHandler.handleESC( ( char )c );
+                handler.handleESC( ( char )c );
                 escSequenceFound();
                 break;
 
@@ -1032,12 +1032,12 @@ public final class VT220Parser
                 if ( la == 'F' || la == 'G' )
                 {
                   // 7- or 8-bit responses...
-                  aHandler.handleESC( ( char )c, la );
+                  handler.handleESC( ( char )c, la );
                 }
                 else if ( la == 'L' || la == 'M' || la == 'N' )
                 {
                   // set ANSI conformance level...
-                  aHandler.handleESC( ( char )c, la );
+                  handler.handleESC( ( char )c, la );
                 }
                 eat( 1 ); // eat the LA...
                 escSequenceFound();
@@ -1054,7 +1054,7 @@ public final class VT220Parser
                 else if ( la == '8' )
                 {
                   // DEC Screen Alignment Test (DECALN)
-                  aHandler.handleESC( ( char )c, la );
+                  handler.handleESC( ( char )c, la );
                 }
                 eat( 1 ); // eat the LA...
                 escSequenceFound();
@@ -1073,7 +1073,7 @@ public final class VT220Parser
                   eat( 1 );
                 }
                 int f = nextChar();
-                aHandler.handleESC( ( char )c, f );
+                handler.handleESC( ( char )c, f );
                 escSequenceFound();
                 break;
               }
@@ -1100,7 +1100,7 @@ public final class VT220Parser
                 // Handle DECSC & DECRC...
                 if ( ( value == 7 || value == 8 ) && lb() == ESCAPE )
                 {
-                  aHandler.handleESC( ( char )c );
+                  handler.handleESC( ( char )c );
                   escSequenceFound();
                 }
                 break;
@@ -1120,15 +1120,15 @@ public final class VT220Parser
           {
             case ESCAPE:
             {
-              this.state = ParserState.ESC;
+              m_state = ParserState.ESC;
               break;
             }
 
             case CSI:
             {
               // 8-bit character...
-              this.state = ParserState.CSI;
-              this.parameters.clear();
+              m_state = ParserState.CSI;
+              m_parameters.clear();
               eightBitSequenceFound();
               break;
             }
@@ -1136,7 +1136,7 @@ public final class VT220Parser
             case DCS:
             {
               // 8-bit character...
-              this.state = ParserState.DCS;
+              m_state = ParserState.DCS;
               eightBitSequenceFound();
               break;
             }
@@ -1151,7 +1151,7 @@ public final class VT220Parser
             case OSC:
             {
               // 8-bit character...
-              this.state = ParserState.OSC;
+              m_state = ParserState.OSC;
               eightBitSequenceFound();
               break;
             }
@@ -1159,7 +1159,7 @@ public final class VT220Parser
             case PM:
             {
               // 8-bit character...
-              this.state = ParserState.PM;
+              m_state = ParserState.PM;
               eightBitSequenceFound();
               break;
             }
@@ -1167,7 +1167,7 @@ public final class VT220Parser
             case APC:
             {
               // 8-bit character...
-              this.state = ParserState.APC;
+              m_state = ParserState.APC;
               eightBitSequenceFound();
               break;
             }
@@ -1175,7 +1175,7 @@ public final class VT220Parser
             case IND: // ESC D
             {
               // Translate to 7-bit sequence...
-              aHandler.handleESC( 'D' );
+              handler.handleESC( 'D' );
               eightBitSequenceFound();
               break;
             }
@@ -1183,7 +1183,7 @@ public final class VT220Parser
             case NEL: // ESC E
             {
               // Translate to 7-bit sequence...
-              aHandler.handleESC( 'E' );
+              handler.handleESC( 'E' );
               eightBitSequenceFound();
               break;
             }
@@ -1191,7 +1191,7 @@ public final class VT220Parser
             case HTS: // ESC H
             {
               // Translate to 7-bit sequence...
-              aHandler.handleESC( 'H' );
+              handler.handleESC( 'H' );
               eightBitSequenceFound();
               break;
             }
@@ -1199,7 +1199,7 @@ public final class VT220Parser
             case RI: // ESC M
             {
               // Translate to 7-bit sequence...
-              aHandler.handleESC( 'M' );
+              handler.handleESC( 'M' );
               eightBitSequenceFound();
               break;
             }
@@ -1207,7 +1207,7 @@ public final class VT220Parser
             case SS2: // ESC N
             {
               // Translate to 7-bit sequence...
-              aHandler.handleESC( 'N' );
+              handler.handleESC( 'N' );
               eightBitSequenceFound();
               break;
             }
@@ -1215,7 +1215,7 @@ public final class VT220Parser
             case SS3: // ESC O
             {
               // Translate to 7-bit sequence...
-              aHandler.handleESC( 'O' );
+              handler.handleESC( 'O' );
               eightBitSequenceFound();
               break;
             }
@@ -1223,7 +1223,7 @@ public final class VT220Parser
             case SPA: // ESC V
             {
               // Translate to 7-bit sequence...
-              aHandler.handleESC( 'V' );
+              handler.handleESC( 'V' );
               eightBitSequenceFound();
               break;
             }
@@ -1231,7 +1231,7 @@ public final class VT220Parser
             case EPA: // ESC W
             {
               // Translate to 7-bit sequence...
-              aHandler.handleESC( 'W' );
+              handler.handleESC( 'W' );
               eightBitSequenceFound();
               break;
             }
@@ -1239,7 +1239,7 @@ public final class VT220Parser
             case SOS: // ESC X
             {
               // 8-bit character...
-              this.state = ParserState.SOS;
+              m_state = ParserState.SOS;
               eightBitSequenceFound();
               break;
             }
@@ -1247,7 +1247,7 @@ public final class VT220Parser
             case DECID: // ESC Z
             {
               // Translate to 7-bit sequence...
-              aHandler.handleESC( 'Z' );
+              handler.handleESC( 'Z' );
               eightBitSequenceFound();
               break;
             }
@@ -1258,13 +1258,13 @@ public final class VT220Parser
               // below ' ')...
               if ( c < SPACE )
               {
-                this.lastWrittenChar = -1;
-                aHandler.handleControl( ( char )c );
+                m_lastWrittenChar = -1;
+                handler.handleControl( ( char )c );
               }
               else
               {
-                this.lastWrittenChar = c;
-                aHandler.handleCharacter( ( char )c );
+                m_lastWrittenChar = c;
+                handler.handleCharacter( ( char )c );
               }
               eat( 0 ); // update last parsing position...
               break;
@@ -1277,7 +1277,7 @@ public final class VT220Parser
           {
             case ESCAPE:
             {
-              this.state = ParserState.ESC;
+              m_state = ParserState.ESC;
               break;
             }
 
@@ -1287,13 +1287,13 @@ public final class VT220Parser
               // below ' ')...
               if ( c < SPACE )
               {
-                this.lastWrittenChar = -1;
-                aHandler.handleControl( ( char )c );
+                m_lastWrittenChar = -1;
+                handler.handleControl( ( char )c );
               }
               else
               {
-                this.lastWrittenChar = c;
-                aHandler.handleCharacter( ( char )c );
+                m_lastWrittenChar = c;
+                handler.handleCharacter( ( char )c );
               }
               eat( 0 ); // update last parsing position...
               break;
@@ -1302,11 +1302,20 @@ public final class VT220Parser
           break;
 
         default:
-          throw new RuntimeException( "Unknown/unhandled state: " + this.state );
+          throw new RuntimeException( "Unknown/unhandled state: " + m_state );
       }
     }
 
-    return this.lastParsePos;
+    return m_lastParsePos;
+  }
+
+  /**
+   * @param logLevel
+   *          the log level to set, >= 0.
+   */
+  public void setLogLevel( int logLevel )
+  {
+    m_logLevel = logLevel;
   }
 
   /**
@@ -1322,26 +1331,28 @@ public final class VT220Parser
    */
   private void csiFound()
   {
-    log( this.text, this.lastParsePos, this.i );
-    this.state = ParserState.VT100;
-    this.parameters.clear();
-    this.lastWrittenChar = -1;
-    this.designator = 0;
-    this.lastParsePos = Math.min( this.text.length(), this.i );
+    log( m_text, m_lastParsePos, m_i );
+
+    m_state = ParserState.VT100;
+    m_parameters.clear();
+    m_lastWrittenChar = -1;
+    m_designator = 0;
+    m_lastParsePos = Math.min( m_text.length(), m_i );
   }
 
   /**
    * "Eats" (ignores) the next number of characters and updates the parsing
    * position.
    * 
-   * @param aCount
+   * @param count
    *          the number of characters to eat, > 0.
    */
-  private void eat( int aCount )
+  private void eat( int count )
   {
-    log( this.text, this.lastParsePos, this.i + aCount );
-    this.i += aCount;
-    this.lastParsePos = Math.min( this.text.length(), this.i );
+    log( m_text, m_lastParsePos, m_i + count );
+
+    m_i += count;
+    m_lastParsePos = Math.min( m_text.length(), m_i );
   }
 
   /**
@@ -1350,10 +1361,11 @@ public final class VT220Parser
    */
   private void eightBitSequenceFound()
   {
-    log( this.text, this.lastParsePos, this.i );
-    this.lastWrittenChar = -1;
-    this.designator = 0;
-    this.lastParsePos = Math.min( this.text.length(), this.i );
+    log( m_text, m_lastParsePos, m_i );
+
+    m_lastWrittenChar = -1;
+    m_designator = 0;
+    m_lastParsePos = Math.min( m_text.length(), m_i );
   }
 
   /**
@@ -1361,18 +1373,19 @@ public final class VT220Parser
    */
   private void escSequenceFound()
   {
-    log( this.text, this.lastParsePos, this.i );
-    if ( this.vt52mode )
+    log( m_text, m_lastParsePos, m_i );
+
+    if ( m_vt52mode )
     {
-      this.state = ParserState.VT52;
+      m_state = ParserState.VT52;
     }
     else
     {
-      this.state = ParserState.VT100;
+      m_state = ParserState.VT100;
     }
-    this.lastWrittenChar = -1;
-    this.designator = 0;
-    this.lastParsePos = Math.min( this.text.length(), this.i );
+    m_lastWrittenChar = -1;
+    m_designator = 0;
+    m_lastParsePos = Math.min( m_text.length(), m_i );
   }
 
   /**
@@ -1384,22 +1397,22 @@ public final class VT220Parser
    * lost and the default value will be returned!
    * </p>
    * 
-   * @param aDefault
+   * @param defaultValue
    *          the default (minimal) value of the parameter.
    * @return an integer value, >= the given default value.
    */
-  private int getIntegerParameter( final int aDefault )
+  private int getIntegerParameter( final int defaultValue )
   {
     int result = Integer.MIN_VALUE;
     if ( hasParameters() )
     {
-      Object param = this.parameters.remove( 0 );
+      Object param = m_parameters.remove( 0 );
       if ( param instanceof Integer )
       {
         result = ( ( Integer )param ).intValue();
       }
     }
-    return Math.max( aDefault, result );
+    return Math.max( defaultValue, result );
   }
 
   /**
@@ -1408,10 +1421,10 @@ public final class VT220Parser
    * 
    * @return an array of integer values, never <code>null</code>.
    */
-  private int[] getIntegerParameters( int... aDefaultValues )
+  private int[] getIntegerParameters( int... defaultValues )
   {
     int count = 0;
-    for ( Object param : this.parameters )
+    for ( Object param : m_parameters )
     {
       if ( param instanceof Integer )
       {
@@ -1422,7 +1435,7 @@ public final class VT220Parser
     int[] result;
     if ( count == 0 )
     {
-      result = Arrays.copyOf( aDefaultValues, aDefaultValues.length );
+      result = Arrays.copyOf( defaultValues, defaultValues.length );
     }
     else
     {
@@ -1430,7 +1443,7 @@ public final class VT220Parser
       int idx = 0;
       while ( hasParameters() )
       {
-        Object param = this.parameters.remove( 0 );
+        Object param = m_parameters.remove( 0 );
         if ( param instanceof Integer )
         {
           result[idx++] = ( ( Integer )param ).intValue();
@@ -1447,17 +1460,19 @@ public final class VT220Parser
    */
   private boolean hasParameters()
   {
-    return !this.parameters.isEmpty();
+    return !m_parameters.isEmpty();
   }
-  
+
   /**
-   * Returns whether or not the CSI is DEC specific, which means that after the CSI a '?' is found.
+   * Returns whether or not the CSI is DEC specific, which means that after the
+   * CSI a '?' is found.
    * 
-   * @return <code>true</code> if the CSI is DEC specific, <code>false</code> otherwise.
+   * @return <code>true</code> if the CSI is DEC specific, <code>false</code>
+   *         otherwise.
    */
-  private boolean isDecSpecific() 
+  private boolean isDecSpecific()
   {
-    return this.designator == '?';
+    return m_designator == '?';
   }
 
   /**
@@ -1468,11 +1483,11 @@ public final class VT220Parser
    */
   private int la()
   {
-    if ( this.i >= this.text.length() )
+    if ( m_i >= m_text.length() )
     {
       return -1;
     }
-    return this.text.charAt( this.i );
+    return m_text.charAt( m_i );
   }
 
   /**
@@ -1484,41 +1499,41 @@ public final class VT220Parser
    */
   private int lb()
   {
-    if ( this.i < 2 )
+    if ( m_i < 2 )
     {
       return -1;
     }
-    return this.text.charAt( this.i - 2 );
+    return m_text.charAt( m_i - 2 );
   }
 
   /**
    * Logs a part of the given character sequence.
    * 
-   * @param aText
+   * @param text
    *          the character sequence to log, cannot be <code>null</code>;
-   * @param aStart
+   * @param start
    *          the start position (inclusive) of the text to log;
-   * @param aEnd
+   * @param end
    *          the end position (inclusive) of the text to log.
    */
-  private void log( CharSequence aText, int aStart, int aEnd )
+  private void log( CharSequence text, int start, int end )
   {
-    if ( this.logLevel < 1 )
+    if ( m_logLevel < 1 )
     {
       return;
     }
 
-    int length = aText.length();
-    if ( aStart >= length )
+    int length = text.length();
+    if ( start >= length )
     {
       return;
     }
-    int end = Math.min( aEnd, length );
+    end = Math.min( end, length );
 
     StringBuilder sb = new StringBuilder( "LOG> " );
-    for ( int i = aStart; i < end; i++ )
+    for ( int i = start; i < end; i++ )
     {
-      char c = aText.charAt( i );
+      char c = text.charAt( i );
       if ( c >= ' ' && c <= '~' )
       {
         sb.append( c );
@@ -1540,21 +1555,21 @@ public final class VT220Parser
    */
   private int nextChar()
   {
-    if ( this.i >= this.text.length() )
+    if ( m_i >= m_text.length() )
     {
       return -1;
     }
-    return this.text.charAt( this.i++ );
+    return m_text.charAt( m_i++ );
   }
 
   /**
    * Pushes the given value onto the parameter stack.
    * 
-   * @param aValue
+   * @param value
    *          the value to push.
    */
-  private void pushParameter( final int aValue )
+  private void pushParameter( final int value )
   {
-    this.parameters.push( Integer.valueOf( aValue ) );
+    m_parameters.push( Integer.valueOf( value ) );
   }
 }

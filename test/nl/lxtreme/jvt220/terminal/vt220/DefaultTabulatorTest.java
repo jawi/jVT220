@@ -6,8 +6,6 @@
 package nl.lxtreme.jvt220.terminal.vt220;
 
 
-import java.io.*;
-
 import junit.framework.*;
 import nl.lxtreme.jvt220.terminal.vt220.AbstractTerminal.DefaultTabulator;
 
@@ -19,8 +17,8 @@ public class DefaultTabulatorTest extends TestCase
 {
   // VARIABLES
 
-  private PlainTerminal term;
-  private DefaultTabulator tabulator;
+  private PlainTerminal m_term;
+  private DefaultTabulator m_tabulator;
 
   // METHODS
 
@@ -29,8 +27,8 @@ public class DefaultTabulatorTest extends TestCase
    */
   protected void setUp()
   {
-    this.term = new PlainTerminal( new ByteArrayOutputStream(), 80, 24 );
-    this.tabulator = term.new DefaultTabulator( 80, 8 );
+    m_term = new PlainTerminal( 80, 24 );
+    m_tabulator = m_term.new DefaultTabulator( 80, 8 );
   }
 
   /**
@@ -38,14 +36,14 @@ public class DefaultTabulatorTest extends TestCase
    */
   public void testClearAll()
   {
-    this.tabulator.set( 1 );
-    this.tabulator.set( 3 );
+    m_tabulator.set( 1 );
+    m_tabulator.set( 3 );
 
-    assertFalse( this.tabulator.getTabStops().isEmpty() );
+    assertFalse( m_tabulator.getTabStops().isEmpty() );
 
-    this.tabulator.clearAll();
+    m_tabulator.clearAll();
 
-    assertTrue( this.tabulator.getTabStops().isEmpty() );
+    assertTrue( m_tabulator.getTabStops().isEmpty() );
   }
 
   /**
@@ -54,15 +52,15 @@ public class DefaultTabulatorTest extends TestCase
   public void testNextTabWithoutAnyTabStops()
   {
     int tabStop = 4; // positions
-    this.tabulator = term.new DefaultTabulator( 80, tabStop );
+    m_tabulator = m_term.new DefaultTabulator( 80, tabStop );
 
     for ( int startPos = 0; startPos < tabStop; startPos++ )
     {
       for ( int i = startPos, j = 4; i < 76; i += tabStop, j += tabStop )
       {
-        assertEquals( "StartPos = " + startPos + ", i = " + i, j, this.tabulator.nextTab( i ) );
+        assertEquals( "StartPos = " + startPos + ", i = " + i, j, m_tabulator.nextTab( i ) );
       }
-      assertEquals( 79, this.tabulator.nextTab( 77 ) );
+      assertEquals( 79, m_tabulator.nextTab( 77 ) );
     }
   }
 
@@ -71,21 +69,21 @@ public class DefaultTabulatorTest extends TestCase
    */
   public void testNextTabWithTabStops()
   {
-    this.tabulator.clearAll();
-    this.tabulator.set( 1 );
-    this.tabulator.set( 3 );
-    this.tabulator.set( 5 );
-    this.tabulator.set( 7 );
-    this.tabulator.set( 9 );
-    this.tabulator.set( 16 );
+    m_tabulator.clearAll();
+    m_tabulator.set( 1 );
+    m_tabulator.set( 3 );
+    m_tabulator.set( 5 );
+    m_tabulator.set( 7 );
+    m_tabulator.set( 9 );
+    m_tabulator.set( 16 );
 
-    assertEquals( 1, this.tabulator.nextTab( 0 ) );
-    assertEquals( 3, this.tabulator.nextTab( 2 ) );
-    assertEquals( 5, this.tabulator.nextTab( 4 ) );
-    assertEquals( 7, this.tabulator.nextTab( 6 ) );
-    assertEquals( 9, this.tabulator.nextTab( 8 ) );
-    assertEquals( 16, this.tabulator.nextTab( 13 ) );
-    assertEquals( 79, this.tabulator.nextTab( 16 ) );
-    assertEquals( 79, this.tabulator.nextTab( 79 ) );
+    assertEquals( 1, m_tabulator.nextTab( 0 ) );
+    assertEquals( 3, m_tabulator.nextTab( 2 ) );
+    assertEquals( 5, m_tabulator.nextTab( 4 ) );
+    assertEquals( 7, m_tabulator.nextTab( 6 ) );
+    assertEquals( 9, m_tabulator.nextTab( 8 ) );
+    assertEquals( 16, m_tabulator.nextTab( 13 ) );
+    assertEquals( 79, m_tabulator.nextTab( 16 ) );
+    assertEquals( 79, m_tabulator.nextTab( 79 ) );
   }
 }
