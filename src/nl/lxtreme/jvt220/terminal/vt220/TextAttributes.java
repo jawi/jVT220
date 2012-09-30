@@ -141,7 +141,7 @@ class TextAttributes
    */
   public void reset()
   {
-    m_attr &= ~( ( 1 << 10 ) - 1 );
+    m_attr &= 0x3FF; // keep lower 10 bits...
   }
 
   /**
