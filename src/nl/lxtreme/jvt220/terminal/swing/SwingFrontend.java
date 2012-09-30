@@ -113,22 +113,6 @@ public class SwingFrontend extends JComponent implements ITerminalFrontend
     }
   }
 
-  private class SendLiteralAction extends AbstractAction
-  {
-    private final String m_literal;
-
-    public SendLiteralAction( String literal )
-    {
-      m_literal = literal;
-    }
-
-    @Override
-    public void actionPerformed( ActionEvent event )
-    {
-      writeCharacters( m_literal );
-    }
-  }
-
   // CONSTANTS
 
   /**
@@ -267,6 +251,16 @@ public class SwingFrontend extends JComponent implements ITerminalFrontend
     int lines = height / ( charDims.m_height + charDims.m_lineSpacing );
 
     return new Dimension( columns, lines );
+  }
+
+  /**
+   * Returns the current terminal.
+   * 
+   * @return the terminal, can be <code>null</code>.
+   */
+  public ITerminal getTerminal()
+  {
+    return m_terminal;
   }
 
   /**
@@ -496,45 +490,96 @@ public class SwingFrontend extends JComponent implements ITerminalFrontend
    */
   protected void mapKeyboard()
   {
-    // TODO this mapping should come from the terminal!
-    createKeyMapping( KeyStroke.getKeyStroke( KeyEvent.VK_UP, 0 ), "\033[A" );
-    createKeyMapping( KeyStroke.getKeyStroke( KeyEvent.VK_DOWN, 0 ), "\033[B" );
-    createKeyMapping( KeyStroke.getKeyStroke( KeyEvent.VK_RIGHT, 0 ), "\033[C" );
-    createKeyMapping( KeyStroke.getKeyStroke( KeyEvent.VK_LEFT, 0 ), "\033[D" );
+    mapKeystroke( KeyEvent.VK_UP );
+    mapKeystroke( KeyEvent.VK_DOWN );
+    mapKeystroke( KeyEvent.VK_RIGHT );
+    mapKeystroke( KeyEvent.VK_LEFT );
 
-    createKeyMapping( KeyStroke.getKeyStroke( KeyEvent.VK_HOME, 0 ), "\033[H" );
-    createKeyMapping( KeyStroke.getKeyStroke( KeyEvent.VK_END, 0 ), "\033[F" );
+    mapKeystroke( KeyEvent.VK_PAGE_DOWN );
+    mapKeystroke( KeyEvent.VK_PAGE_UP );
+    mapKeystroke( KeyEvent.VK_HOME );
+    mapKeystroke( KeyEvent.VK_END );
 
-    createKeyMapping( KeyStroke.getKeyStroke( KeyEvent.VK_F1, 0 ), "\033[OP" );
-    createKeyMapping( KeyStroke.getKeyStroke( KeyEvent.VK_F2, 0 ), "\033[OQ" );
-    createKeyMapping( KeyStroke.getKeyStroke( KeyEvent.VK_F3, 0 ), "\033[OR" );
-    createKeyMapping( KeyStroke.getKeyStroke( KeyEvent.VK_F4, 0 ), "\033[OS" );
-    createKeyMapping( KeyStroke.getKeyStroke( KeyEvent.VK_F5, 0 ), "\033[[15~" );
-    createKeyMapping( KeyStroke.getKeyStroke( KeyEvent.VK_F6, 0 ), "\033[[17~" );
-    createKeyMapping( KeyStroke.getKeyStroke( KeyEvent.VK_F7, 0 ), "\033[[18~" );
-    createKeyMapping( KeyStroke.getKeyStroke( KeyEvent.VK_F8, 0 ), "\033[[19~" );
-    createKeyMapping( KeyStroke.getKeyStroke( KeyEvent.VK_F9, 0 ), "\033[[20~" );
-    createKeyMapping( KeyStroke.getKeyStroke( KeyEvent.VK_F10, 0 ), "\033[[21~" );
-    createKeyMapping( KeyStroke.getKeyStroke( KeyEvent.VK_F11, 0 ), "\033[[23~" );
-    createKeyMapping( KeyStroke.getKeyStroke( KeyEvent.VK_F12, 0 ), "\033[[24~" );
+    mapKeystroke( KeyEvent.VK_NUMPAD0 );
+    mapKeystroke( KeyEvent.VK_NUMPAD1 );
+    mapKeystroke( KeyEvent.VK_NUMPAD2 );
+    mapKeystroke( KeyEvent.VK_NUMPAD3 );
+    mapKeystroke( KeyEvent.VK_NUMPAD4 );
+    mapKeystroke( KeyEvent.VK_NUMPAD5 );
+    mapKeystroke( KeyEvent.VK_NUMPAD6 );
+    mapKeystroke( KeyEvent.VK_NUMPAD7 );
+    mapKeystroke( KeyEvent.VK_NUMPAD8 );
+    mapKeystroke( KeyEvent.VK_NUMPAD9 );
+    mapKeystroke( KeyEvent.VK_MINUS );
+    mapKeystroke( KeyEvent.VK_PLUS );
+    mapKeystroke( KeyEvent.VK_COMMA );
+    mapKeystroke( KeyEvent.VK_PERIOD );
+    mapKeystroke( KeyEvent.VK_ENTER );
+    mapKeystroke( KeyEvent.VK_KP_DOWN );
+    mapKeystroke( KeyEvent.VK_KP_LEFT );
+    mapKeystroke( KeyEvent.VK_KP_RIGHT );
+    mapKeystroke( KeyEvent.VK_KP_UP );
+
+    mapKeystroke( KeyEvent.VK_F1 );
+    mapKeystroke( KeyEvent.VK_F1, KeyEvent.ALT_DOWN_MASK );
+    mapKeystroke( KeyEvent.VK_F2 );
+    mapKeystroke( KeyEvent.VK_F2, KeyEvent.ALT_DOWN_MASK );
+    mapKeystroke( KeyEvent.VK_F3 );
+    mapKeystroke( KeyEvent.VK_F3, KeyEvent.ALT_DOWN_MASK );
+    mapKeystroke( KeyEvent.VK_F4 );
+    mapKeystroke( KeyEvent.VK_F4, KeyEvent.ALT_DOWN_MASK );
+    mapKeystroke( KeyEvent.VK_F5 );
+    mapKeystroke( KeyEvent.VK_F6 );
+    mapKeystroke( KeyEvent.VK_F7 );
+    mapKeystroke( KeyEvent.VK_F8 );
+    mapKeystroke( KeyEvent.VK_F9 );
+    mapKeystroke( KeyEvent.VK_F10 );
+    mapKeystroke( KeyEvent.VK_F11 );
+    mapKeystroke( KeyEvent.VK_F12 );
+  }
+
+  /**
+   * Maps the given keycode and modifiers to a terminal specific sequence.
+   * 
+   * @param keycode
+   *          the keycode to map;
+   * @param modifiers
+   *          the modifiers to map.
+   * @return a terminal-specific sequence for the given input, or
+   *         <code>null</code> if no specific sequence exists for this terminal.
+   */
+  protected String mapKeyCode( int keycode, int modifiers )
+  {
+    return getTerminal().getKeyMapper().map( keycode, modifiers );
   }
 
   /**
    * Creates a key mapping for the given keystroke and the given action which is
    * send as literal text to the terminal.
    * 
-   * @param keystroke
-   *          the keystroke to map, cannot be <code>null</code>;
-   * @param action
-   *          the action to map the keystroke to, cannot be <code>null</code>.
+   * @param keycode
+   *          the keycode to map.
    */
-  protected void createKeyMapping( KeyStroke keystroke, String action )
+  protected void mapKeystroke( int keycode )
   {
-    InputMap inputMap = getInputMap( WHEN_ANCESTOR_OF_FOCUSED_COMPONENT );
-    inputMap.put( keystroke, action );
+    mapKeystroke( keycode, 0 );
+  }
 
-    ActionMap actionMap = getActionMap();
-    actionMap.put( action, new SendLiteralAction( action ) );
+  /**
+   * Creates a key mapping for the given keystroke and the given action which is
+   * send as literal text to the terminal.
+   * 
+   * @param keycode
+   *          the keycode to map;
+   * @param modifiers
+   *          the modifiers to map.
+   */
+  protected void mapKeystroke( int keycode, int modifiers )
+  {
+    final KeyStroke keystroke = KeyStroke.getKeyStroke( keycode, modifiers );
+    final String key = keystroke.toString();
+
+    getInputMap().put( keystroke, key );
   }
 
   /**
@@ -566,16 +611,50 @@ public class SwingFrontend extends JComponent implements ITerminalFrontend
    * {@inheritDoc}
    */
   @Override
-  protected void processKeyEvent( KeyEvent event )
+  protected boolean processKeyBinding( KeyStroke keystroke, KeyEvent event, int condition, boolean pressed )
   {
-    int id = event.getID();
-    if ( id == KeyEvent.KEY_TYPED )
+    if ( !isEnabled() )
     {
-      writeCharacter( event.getKeyChar() );
-      event.consume();
+      // Don't bother to process keys for a disabled component...
+      return false;
     }
 
-    super.processKeyEvent( event );
+    InputMap inputMap = getInputMap( condition );
+    ActionMap actionMap = getActionMap();
+
+    if ( ( inputMap != null ) && ( actionMap != null ) && ( event.getID() == KeyEvent.KEY_PRESSED ) )
+    {
+      Object binding = inputMap.get( keystroke );
+      if ( binding != null )
+      {
+        Action action = actionMap.get( binding );
+        if ( action != null )
+        {
+          // Normal action; invoke it...
+          return SwingUtilities.notifyAction( action, keystroke, event, this, event.getModifiers() );
+        }
+        else
+        {
+          // Keystroke we've mapped without an action, means we're going to test
+          // whether there's a mapping for it. If so, use that as response,
+          // otherwise respond with the 'regular' key...
+          String mapping = mapKeyCode( keystroke.getKeyCode(), keystroke.getModifiers() );
+          if ( mapping != null )
+          {
+            writeCharacters( mapping );
+            return true;
+          }
+        }
+      }
+
+      if ( isRegularKey( keystroke ) )
+      {
+        writeCharacter( event.getKeyChar() );
+        return true;
+      }
+    }
+
+    return false;
   }
 
   /**
@@ -749,5 +828,23 @@ public class SwingFrontend extends JComponent implements ITerminalFrontend
 
     canvas.setColor( color );
     canvas.drawRect( x, y, cw, ch - 2 * ls );
+  }
+
+  /**
+   * Returns whether the given keystroke represents a "regular" key, that is, it
+   * is defined and not a modifier.
+   * 
+   * @param keystroke
+   *          the keystroke to test, cannot be <code>null</code>.
+   * @return <code>false</code> if the given keystroke is either not defined or
+   *         represents a modifier key (SHIFT, CTRL, etc.), <code>true</code>
+   *         otherwise.
+   */
+  private boolean isRegularKey( KeyStroke keystroke )
+  {
+    int c = keystroke.getKeyCode();
+    return ( c != KeyEvent.VK_UNDEFINED ) && ( c != KeyEvent.VK_SHIFT ) && ( c != KeyEvent.VK_ALT )
+        && ( c != KeyEvent.VK_ALT_GRAPH ) && ( c != KeyEvent.VK_META ) && ( c != KeyEvent.VK_WINDOWS )
+        && ( c != KeyEvent.VK_CONTROL );
   }
 }

@@ -6,6 +6,7 @@
 package nl.lxtreme.jvt220.terminal;
 
 
+import java.awt.event.*;
 import java.io.*;
 
 
@@ -16,6 +17,29 @@ import java.io.*;
 public interface ITerminal extends Closeable
 {
   // INNER TYPES
+
+  /**
+   * Used to translate keyboard codes to this terminal.
+   */
+  public static interface IKeyMapper
+  {
+    // METHODS
+
+    /**
+     * Maps a given keycode + modifiers mask into a character sequence that can
+     * be send from this terminal.
+     * 
+     * @param aKeyCode
+     *          the key code, as defined in {@link KeyEvent} (<tt>VK_*</tt>);
+     * @param aModifiers
+     *          the bit mask with key modifiers, as defined in
+     *          {@link InputEvent} (<tt>*_MASK</tt>).
+     * @return a string that maps the given key code and modifiers in a sequence
+     *         that is native to this terminal, or <code>null</code> if no
+     *         mapping could be made.
+     */
+    String map( int aKeyCode, int aModifiers );
+  }
 
   /**
    * Denotes a single 'cell' which contains a character and mark up attributes.
@@ -115,6 +139,13 @@ public interface ITerminal extends Closeable
    * @return a height, in lines.
    */
   int getHeight();
+
+  /**
+   * Returns a mapper that translated key codes.
+   * 
+   * @return a key mapper, never <code>null</code>.
+   */
+  IKeyMapper getKeyMapper();
 
   /**
    * Returns the tabulator for this terminal.

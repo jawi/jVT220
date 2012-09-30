@@ -20,6 +20,23 @@ public abstract class AbstractTerminal implements ITerminal
   // INNER TYPES
 
   /**
+   * Provides a default key mapper that does not map anything.
+   */
+  protected static class DefaultKeyMapper implements IKeyMapper
+  {
+    // METHODS
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public String map( int keyCode, int modifiers )
+    {
+      return null;
+    }
+  }
+
+  /**
    * Provides a default tabulator implementation.
    */
   protected class DefaultTabulator implements ITabulator
@@ -173,6 +190,7 @@ public abstract class AbstractTerminal implements ITerminal
 
   private final CursorImpl m_cursor;
   private final ITabulator m_tabulator;
+  private final IKeyMapper m_keymapper;
 
   protected final BitSet m_options;
   protected final TextAttributes m_textAttributes;
@@ -205,6 +223,7 @@ public abstract class AbstractTerminal implements ITerminal
    */
   protected AbstractTerminal( final int columns, final int lines )
   {
+    m_keymapper = createKeyMapper();
     m_textAttributes = new TextAttributes();
     m_cursor = new CursorImpl();
     m_options = new BitSet();
@@ -319,6 +338,15 @@ public abstract class AbstractTerminal implements ITerminal
   public int getHeight()
   {
     return m_height;
+  }
+  
+  /**
+   * {@inheritDoc}
+   */
+  @Override
+  public final IKeyMapper getKeyMapper()
+  {
+    return m_keymapper;
   }
 
   /**
@@ -879,6 +907,16 @@ public abstract class AbstractTerminal implements ITerminal
       default:
         throw new IllegalArgumentException( "Invalid clear screen mode!" );
     }
+  }
+
+  /**
+   * Factory method for creating {@link IKeyMapper} instances.
+   * 
+   * @return a new {@link IKeyMapper} instance, never <code>null</code>.
+   */
+  protected IKeyMapper createKeyMapper()
+  {
+    return new DefaultKeyMapper();
   }
 
   /**

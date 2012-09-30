@@ -6,12 +6,12 @@
 package nl.lxtreme.jvt220.terminal.vt220;
 
 
+import static java.awt.event.KeyEvent.*;
 import static nl.lxtreme.jvt220.terminal.vt220.VT220Parser.*;
 
 import java.awt.*;
+import java.awt.event.*;
 import java.io.*;
-
-import javax.swing.text.*;
 
 import nl.lxtreme.jvt220.terminal.*;
 import nl.lxtreme.jvt220.terminal.vt220.CharacterSets.CharacterSet;
@@ -168,9 +168,12 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
     }
   }
 
+  /**
+   * Denotes the various types of responses we can sent from this terminal.
+   */
   static enum ResponseType
   {
-    ESC, CSI, OSC; // XXX
+    ESC, CSI, OSC, SS3;
   }
 
   /**
@@ -254,12 +257,258 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
     }
   }
 
+  /**
+   * Provides a VT220-compatible key mapper.
+   */
+  final class VT220KeyMapper implements IKeyMapper
+  {
+    // METHODS
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public String map( int keyCode, int modifiers )
+    {
+      switch ( keyCode )
+      {
+        case VK_UP:
+          if ( isVT52mode() )
+          {
+            // Always ESC A
+            return createResponse( ResponseType.ESC, "A" );
+          }
+          // CSI A in normal mode, SS3 A in application mode...
+          return createResponse( isApplicationCursorKeys() ? ResponseType.SS3 : ResponseType.CSI, "A" );
+
+        case VK_DOWN:
+          if ( isVT52mode() )
+          {
+            // Always ESC B
+            return createResponse( ResponseType.ESC, "B" );
+          }
+          // CSI B in normal mode, SS3 B in application mode...
+          return createResponse( isApplicationCursorKeys() ? ResponseType.SS3 : ResponseType.CSI, "B" );
+
+        case VK_RIGHT:
+          if ( isVT52mode() )
+          {
+            // Always ESC C
+            return createResponse( ResponseType.ESC, "C" );
+          }
+          // CSI C in normal mode, SS3 C in application mode...
+          return createResponse( isApplicationCursorKeys() ? ResponseType.SS3 : ResponseType.CSI, "C" );
+
+        case VK_LEFT:
+          if ( isVT52mode() )
+          {
+            // Always ESC D
+            return createResponse( ResponseType.ESC, "D" );
+          }
+          // CSI D in normal mode, SS3 D in application mode...
+          return createResponse( isApplicationCursorKeys() ? ResponseType.SS3 : ResponseType.CSI, "D" );
+
+        case VK_PAGE_DOWN:
+          // Simulates NEXT SCREEN, CSI 6~
+          return map( "\033[6~", null );
+
+        case VK_PAGE_UP:
+          // Simulates PREVIOUS SCREEN, CSI 5~
+          return map( "\033[5~", null );
+
+        case VK_HOME:
+          // CSI H in normal mode, SS3 H in application mode...
+          return map( "\033[H", "H" );
+
+        case VK_END:
+          // CSI F in normal mode, SS3 F in application mode...
+          return map( "\033[F", "F" );
+
+        case VK_NUMPAD0:
+          return map( "0", "p", "0", "?p" );
+
+        case VK_NUMPAD1:
+          return map( "1", "q", "1", "?q" );
+
+        case VK_NUMPAD2:
+          return map( "2", "r", "2", "?r" );
+
+        case VK_NUMPAD3:
+          return map( "3", "s", "3", "?s" );
+
+        case VK_NUMPAD4:
+          return map( "3", "t", "4", "?t" );
+
+        case VK_NUMPAD5:
+          return map( "5", "u", "5", "?u" );
+
+        case VK_NUMPAD6:
+          return map( "6", "v", "6", "?v" );
+
+        case VK_NUMPAD7:
+          return map( "7", "w", "7", "?w" );
+
+        case VK_NUMPAD8:
+          return map( "8", "x", "8", "?x" );
+
+        case VK_NUMPAD9:
+          return map( "9", "y", "9", "?y" );
+
+        case VK_MINUS:
+          return map( "-", "m", "-", "?m" );
+
+        case VK_COMMA:
+          return map( ",", "l", ",", "?l" );
+
+        case VK_PERIOD:
+          return map( ".", "n", ".", "?n" );
+
+        case VK_ENTER:
+          return map( "\015", "M", "\015", "?M" );
+
+        case VK_F1:
+          if ( isVT52mode() )
+          {
+            return createResponse( ResponseType.ESC, "P" );
+          }
+          if ( ( modifiers & InputEvent.ALT_DOWN_MASK ) != 0 )
+          {
+            // Simulate PF1 with ALT-F1...
+            return createResponse( ResponseType.SS3, "P" );
+          }
+          return createResponse( ResponseType.CSI, "11~" );
+
+        case VK_F2:
+          if ( isVT52mode() )
+          {
+            return createResponse( ResponseType.ESC, "Q" );
+          }
+          if ( ( modifiers & InputEvent.ALT_DOWN_MASK ) != 0 )
+          {
+            // Simulate PF2 with ALT-F2...
+            return createResponse( ResponseType.SS3, "Q" );
+          }
+          return createResponse( ResponseType.CSI, "12~" );
+
+        case VK_F3:
+          if ( isVT52mode() )
+          {
+            return createResponse( ResponseType.ESC, "R" );
+          }
+          if ( ( modifiers & InputEvent.ALT_DOWN_MASK ) != 0 )
+          {
+            // Simulate PF3 with ALT-F3...
+            return createResponse( ResponseType.SS3, "R" );
+          }
+          return createResponse( ResponseType.CSI, "13~" );
+
+        case VK_F4:
+          if ( isVT52mode() )
+          {
+            return createResponse( ResponseType.ESC, "S" );
+          }
+          if ( ( modifiers & InputEvent.ALT_DOWN_MASK ) != 0 )
+          {
+            // Simulate PF4 with ALT-F4...
+            return createResponse( ResponseType.SS3, "S" );
+          }
+          return createResponse( ResponseType.CSI, "14~" );
+
+        case VK_F5:
+          // Seems not to be mapped at all according to
+          // <http://www.vt100.net/docs/vt220-rm/table3-4.html>
+          if ( isVT52mode() )
+          {
+            // Not mapped...
+            return null;
+          }
+          return createResponse( ResponseType.CSI, "15~" );
+
+        case VK_F6:
+          if ( isVT52mode() )
+          {
+            // Not mapped...
+            return null;
+          }
+          return createResponse( ResponseType.CSI, "17~" );
+
+        case VK_F7:
+          if ( isVT52mode() )
+          {
+            // Not mapped...
+            return null;
+          }
+          return createResponse( ResponseType.CSI, "18~" );
+
+        case VK_F8:
+          if ( isVT52mode() )
+          {
+            // Not mapped...
+            return null;
+          }
+          return createResponse( ResponseType.CSI, "19~" );
+
+        case VK_F9:
+          if ( isVT52mode() )
+          {
+            // Not mapped...
+            return null;
+          }
+          return createResponse( ResponseType.CSI, "20~" );
+
+        case VK_F10:
+          if ( isVT52mode() )
+          {
+            // Not mapped...
+            return null;
+          }
+          return createResponse( ResponseType.CSI, "21~" );
+
+        case VK_F11:
+          if ( isVT52mode() )
+          {
+            // Escape...
+            return createResponse( ResponseType.ESC, "" );
+          }
+          return createResponse( ResponseType.CSI, "23~" );
+
+        case VK_F12:
+          if ( isVT52mode() )
+          {
+            // Backspace...
+            return "\b";
+          }
+          return createResponse( ResponseType.CSI, "24~" );
+
+        default:
+          return null;
+      }
+    }
+
+    private String map( String vt100normal, String vt100application )
+    {
+      return map( vt100normal, vt100application, null, null );
+    }
+
+    private String map( String vt100normal, String vt100application, String vt52normal, String vt52application )
+    {
+      if ( isVT52mode() )
+      {
+        // '0' is normal mode, ESC ? p in application mode...
+        return isApplicationCursorKeys() ? createResponse( ResponseType.ESC, vt52application ) : vt52normal;
+      }
+      // '0' in normal mode, SS3 p in application mode...
+      return isApplicationCursorKeys() ? createResponse( ResponseType.SS3, vt100application ) : vt100normal;
+    }
+  }
+
   // CONSTANTS
 
   private static final int OPTION_132COLS = 5;
   private static final int OPTION_8BIT = 6;
   private static final int OPTION_ERASURE_MODE = 7;
   private static final int OPTION_REVERSE_WRAP_AROUND = 8;
+  private static final int OPTION_APPLICATION_CURSOR_KEYS = 9;
 
   // VARIABLES
 
@@ -314,6 +563,12 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
 
     switch ( controlChar )
     {
+      case ENQ:
+      {
+        // Answerback
+        write( getClass().getSimpleName() );
+        break;
+      }
       case SO:
       {
         // Shift-out (select G1 as GL)...
@@ -858,6 +1113,11 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
         int arg = parameters[0];
         switch ( arg )
         {
+          case 1:
+            // (DECCKM) Application cursor keys; default = false
+            setApplicationCursorKeys( true );
+            break;
+
           case 2:
             // (DECANM) Designate USASCII for character sets G0-G3; set VT100
             // mode.
@@ -982,6 +1242,11 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
         int arg = parameters[0];
         switch ( arg )
         {
+          case 1:
+            // (DECCKM) Normal cursor keys; default = false
+            setApplicationCursorKeys( false );
+            break;
+
           case 2:
             // (DECANM) Set VT52 mode.
             m_graphicSetState.resetState();
@@ -1485,13 +1750,13 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
       case '=':
       {
         // (DECPAM) Application Keypad
-        log( "TODO: implemenent Application Keypad mode!" );
+        setApplicationCursorKeys( true );
         break;
       }
       case '>':
       {
         // (DECPNM) Normal Keypad
-        log( "TODO: implemenent Normal Keypad mode!" );
+        setApplicationCursorKeys( false );
         break;
       }
 
@@ -1564,6 +1829,15 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
    * {@inheritDoc}
    */
   @Override
+  protected IKeyMapper createKeyMapper()
+  {
+    return new VT220KeyMapper();
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  @Override
   protected int doReadInput( final CharSequence text ) throws IOException
   {
     return m_vt220parser.parse( text, this );
@@ -1594,6 +1868,19 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
   }
 
   /**
+   * Returns whether or not the cursor keys map to application-specific keys, or
+   * to normal keys.
+   * 
+   * @return <code>true</code> if application cursor keys are to be used,
+   *         <code>false</code> if normal cursor keys are to be used.
+   * @see #setApplicationCursorKeys(boolean)
+   */
+  protected final boolean isApplicationCursorKeys()
+  {
+    return m_options.get( OPTION_APPLICATION_CURSOR_KEYS );
+  }
+
+  /**
    * Returns whether or not protected content can be erased.
    * 
    * @return <code>true</code> if only unprotected content can be erased,
@@ -1616,6 +1903,17 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
   protected final boolean isReverseWrapAround()
   {
     return m_options.get( OPTION_REVERSE_WRAP_AROUND );
+  }
+
+  /**
+   * Returns whether or not this terminal is emulating a VT52.
+   * 
+   * @return <code>true</code> if the terminal is currently emulating a VT52,
+   *         <code>false</code> if it is emulating a VT100/VT220.
+   */
+  protected final boolean isVT52mode()
+  {
+    return m_vt220parser.isVT52mode();
   }
 
   /**
@@ -1653,6 +1951,19 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
   }
 
   /**
+   * Sets whether or not the cursor keys map to application-specific keys, or to
+   * normal keys.
+   * 
+   * @param enable
+   *          <code>true</code> to enable application cursor keys,
+   *          <code>false</code> to enable normal cursor keys.
+   */
+  protected final void setApplicationCursorKeys( boolean enable )
+  {
+    m_options.set( OPTION_APPLICATION_CURSOR_KEYS, enable );
+  }
+
+  /**
    * Sets whether or not protected content is to be erased.
    * 
    * @param enable
@@ -1680,6 +1991,43 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
   }
 
   /**
+   * Creates a 7- or 8-bit response according to a given type.
+   * 
+   * @param type
+   *          the type of response;
+   * @param content
+   *          the actual content.
+   * @return the 7- or 8-bit response, never <code>null</code>.
+   */
+  private String createResponse( ResponseType type, String content )
+  {
+    StringBuilder sb = new StringBuilder();
+    switch ( type )
+    {
+      case ESC:
+        sb.append( "\033" );
+        break;
+
+      case OSC:
+        sb.append( is8bitMode() ? VT220Parser.OSC : "\033]" );
+        break;
+
+      case CSI:
+        sb.append( is8bitMode() ? VT220Parser.CSI : "\033[" );
+        break;
+
+      case SS3:
+        sb.append( is8bitMode() ? VT220Parser.SS3 : "\033O" );
+        break;
+
+      default:
+        throw new RuntimeException( "Unhandled response type: " + type );
+    }
+    sb.append( content );
+    return sb.toString();
+  }
+
+  /**
    * End of protected area.
    */
   private void handleEPA()
@@ -1689,12 +2037,10 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
 
   /**
    * Converts the graphics rendering options in the form of a given parameter
-   * stack into a {@link AttributeSet}.
+   * stack into recognized text attributes.
    * 
-   * @param aTermState
-   *          the current parser state, used to create a {@link AttributeSet}
-   *          instance, cannot be <code>null</code>.
-   * @return a {@link SimpleAttributeSet} instance, never <code>null</code>.
+   * @param parameters
+   *          the parameters to handle as graphics rendering options.
    */
   private void handleGraphicsRendering( int[] parameters )
   {
@@ -1934,7 +2280,7 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
     }
     else
     {
-      if ( m_vt220parser.isVT52mode() )
+      if ( isVT52mode() )
       {
         // Send back that we're a VT52...
         writeResponse( ResponseType.ESC, "/Z" );
@@ -2028,6 +2374,7 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
     setReverseWrapAround( true );
     // Unlocks the keyboard (KAM)
     // Sets the cursor keypad mode to normal (DECCKM)
+    setApplicationCursorKeys( false );
     // Sets the numeric keypad mode to numeric (DECNKM)
 
     set8bitMode( false );
@@ -2056,23 +2403,6 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
    */
   private void writeResponse( ResponseType type, String content ) throws IOException
   {
-    switch ( type )
-    {
-      case ESC:
-        write( "\033" );
-        break;
-
-      case OSC:
-        write( is8bitMode() ? Character.toString( VT220Parser.OSC ) : "\033]" );
-        break;
-
-      case CSI:
-        write( is8bitMode() ? Character.toString( VT220Parser.CSI ) : "\033[" );
-        break;
-
-      default:
-        throw new RuntimeException( "Unhandled response type: " + type );
-    }
-    write( content );
+    write( createResponse( type, content ) );
   }
 }
