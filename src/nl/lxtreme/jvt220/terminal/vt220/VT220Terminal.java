@@ -537,8 +537,6 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
 
     // Make sure the terminal is in a known state...
     reset();
-
-    m_vt220parser.setLogLevel( 1 );
   }
 
   // METHODS
@@ -1453,23 +1451,10 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
         break;
       }
 
-      case RestoreDECPM: // ?r
-      {
-        // TODO
+      case RestoreDECPM: // ?r; Restore DEC Private Mode Values; xterm specific
+      case DECCARA: // $r; Change attributes in rectangular area; VT420 only
+      case SaveDECPM: // ?s; Save DEC Private Mode Values; xterm specific
         break;
-      }
-
-      case DECCARA: // $r
-      {
-        // TODO
-        break;
-      }
-
-      case SaveDECPM: // ?s
-      {
-        // TODO
-        break;
-      }
 
       case WindowManipulation: // t
       {
@@ -1558,23 +1543,10 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
         break;
       }
 
-      case DECRARA: // $t
-      {
-        // TODO
+      case DECRARA: // $t; reverse attributes in rectangular area; VT420 only
+      case DECCRA: // $v; copy rectangular area; VT400 only
+      case DECEFR: // 'w; Enable filter rectangle; VT340 only
         break;
-      }
-
-      case DECCRA: // $v
-      {
-        // TODO
-        break;
-      }
-
-      case DECEFR: // 'w
-      {
-        // TODO
-        break;
-      }
 
       case DECREQTPARM: // x
       {
@@ -1585,41 +1557,13 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
         break;
       }
 
-      case DECFRA: // $x
-      {
-        // TODO
+      case DECFRA: // $x; Fill rectangular area; VT400 only
+      case DECELR: // 'z; Enable locator reports; VT340 only
+      case DECERA: // $z; Erase rectangular area; VT400 only
+      case DECSLE: // '{; Select locator events; VT340 only
+      case DECSERA: // ${; Selective erase rectangular area; VT400 only
+      case DECRQLP: // '|; Request locator position; VT340 only
         break;
-      }
-
-      case DECELR: // 'z
-      {
-        // TODO
-        break;
-      }
-
-      case DECERA: // $z
-      {
-        // TODO
-        break;
-      }
-
-      case DECSLE: // '{
-      {
-        // TODO
-        break;
-      }
-
-      case DECSERA: // ${
-      {
-        // TODO
-        break;
-      }
-
-      case DECRQLP: // '|
-      {
-        // TODO
-        break;
-      }
 
       default:
         log( "Unhandled CSI: " + type );

@@ -231,7 +231,7 @@ public abstract class AbstractTerminal implements ITerminal
 
     internalSetDimensions( columns, lines );
 
-    m_logLevel = 3;
+    m_logLevel = 0;
   }
 
   // METHODS
@@ -293,8 +293,8 @@ public abstract class AbstractTerminal implements ITerminal
   @Override
   public void close() throws IOException
   {
-    // TODO Auto-generated method stub
-
+    m_buffer = null;
+    m_heatMap = null;
   }
 
   /**
