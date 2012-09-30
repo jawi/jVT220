@@ -339,7 +339,7 @@ public abstract class AbstractTerminal implements ITerminal
   {
     return m_height;
   }
-  
+
   /**
    * {@inheritDoc}
    */
@@ -551,27 +551,7 @@ public abstract class AbstractTerminal implements ITerminal
    */
   public void scrollDown( final int lines )
   {
-    if ( lines < 1 )
-    {
-      throw new IllegalArgumentException( "Invalid number of lines!" );
-    }
-
-    int region = ( m_lastScrollLine - m_firstScrollLine + 1 );
-    int n = Math.min( lines, region );
-    int width = getWidth();
-
-    int srcPos = m_firstScrollLine * width;
-    int destPos = ( n + m_firstScrollLine ) * width;
-    int length = ( m_lastScrollLine + 1 ) * width - destPos;
-
-    if ( length > 0 )
-    {
-      System.arraycopy( m_buffer, srcPos, m_buffer, destPos, length );
-    }
-
-    Arrays.fill( m_buffer, srcPos, destPos, new TextCell( ' ', getAttributes() ) );
-    // Update the heat map...
-    Arrays.fill( m_heatMap, true );
+    scrollDown( m_firstScrollLine, m_lastScrollLine, lines );
   }
 
   /**
@@ -585,27 +565,7 @@ public abstract class AbstractTerminal implements ITerminal
    */
   public void scrollUp( final int lines )
   {
-    if ( lines < 1 )
-    {
-      throw new IllegalArgumentException( "Invalid number of lines!" );
-    }
-
-    int region = ( m_lastScrollLine - m_firstScrollLine + 1 );
-    int n = Math.min( lines, region );
-    int width = getWidth();
-
-    int srcPos = ( n + m_firstScrollLine ) * width;
-    int destPos = m_firstScrollLine * width;
-    int lastPos = ( m_lastScrollLine + 1 ) * width;
-    int length = lastPos - srcPos;
-
-    if ( length > 0 )
-    {
-      System.arraycopy( m_buffer, srcPos, m_buffer, destPos, length );
-    }
-    Arrays.fill( m_buffer, destPos + length, srcPos + length, new TextCell( ' ', getAttributes() ) );
-    // Update the heat map...
-    Arrays.fill( m_heatMap, true );
+    scrollUp( m_firstScrollLine, m_lastScrollLine, lines );
   }
 
   /**
@@ -723,6 +683,8 @@ public abstract class AbstractTerminal implements ITerminal
   public void setReverse( boolean enable )
   {
     m_options.set( OPTION_REVERSE, enable );
+    // The entire screen should be redrawn...
+    Arrays.fill( m_heatMap, true );
 
     if ( m_frontend != null )
     {
@@ -1128,6 +1090,102 @@ public abstract class AbstractTerminal implements ITerminal
   protected final void resetWrapped()
   {
     m_wrapped = false;
+  }
+
+  /**
+   * Scrolls all lines between [firstScrollLine, lastScrollLine] the given
+   * number of lines down.
+   * 
+   * @param firstScrollLine
+   *          the first line of the scroll region;
+   * @param lastScrollLine
+   *          the last line of the scroll region;
+   * @param lines
+   *          the number of lines to scroll, > 0.
+   */
+  protected void scrollDown( final int firstScrollLine, final int lastScrollLine, final int lines )
+  {
+    if ( firstScrollLine < 0 )
+    {
+      throw new IllegalArgumentException( "First scroll line cannot be less than zero!" );
+    }
+    if ( lastScrollLine >= getHeight() )
+    {
+      throw new IllegalArgumentException( "Last scroll line cannot be greater than terminal height!" );
+    }
+    if ( lastScrollLine < firstScrollLine )
+    {
+      throw new IllegalArgumentException( "Scroll region cannot be negative!" );
+    }
+    if ( lines < 1 )
+    {
+      throw new IllegalArgumentException( "Invalid number of lines!" );
+    }
+
+    int region = ( lastScrollLine - firstScrollLine + 1 );
+    int n = Math.min( lines, region );
+    int width = getWidth();
+
+    int srcPos = firstScrollLine * width;
+    int destPos = ( n + firstScrollLine ) * width;
+    int length = ( lastScrollLine + 1 ) * width - destPos;
+
+    if ( length > 0 )
+    {
+      System.arraycopy( m_buffer, srcPos, m_buffer, destPos, length );
+    }
+
+    Arrays.fill( m_buffer, srcPos, destPos, new TextCell( ' ', getAttributes() ) );
+    // Update the heat map...
+    Arrays.fill( m_heatMap, srcPos, destPos, true );
+  }
+
+  /**
+   * Scrolls all lines between [firstScrollLine, lastScrollLine] the given
+   * number of lines up.
+   * 
+   * @param firstScrollLine
+   *          the first line of the scroll region;
+   * @param lastScrollLine
+   *          the last line of the scroll region;
+   * @param lines
+   *          the number of lines to scroll, > 0.
+   */
+  protected void scrollUp( final int firstScrollLine, final int lastScrollLine, final int lines )
+  {
+    if ( firstScrollLine < 0 )
+    {
+      throw new IllegalArgumentException( "First scroll line cannot be less than zero!" );
+    }
+    if ( lastScrollLine >= getHeight() )
+    {
+      throw new IllegalArgumentException( "Last scroll line cannot be greater than terminal height!" );
+    }
+    if ( lastScrollLine < firstScrollLine )
+    {
+      throw new IllegalArgumentException( "Scroll region cannot be negative!" );
+    }
+    if ( lines < 1 )
+    {
+      throw new IllegalArgumentException( "Invalid number of lines!" );
+    }
+
+    int region = ( lastScrollLine - firstScrollLine + 1 );
+    int n = Math.min( lines, region );
+    int width = getWidth();
+
+    int srcPos = ( n + firstScrollLine ) * width;
+    int destPos = firstScrollLine * width;
+    int lastPos = ( lastScrollLine + 1 ) * width;
+    int length = lastPos - srcPos;
+
+    if ( length > 0 )
+    {
+      System.arraycopy( m_buffer, srcPos, m_buffer, destPos, length );
+    }
+    Arrays.fill( m_buffer, destPos + length, srcPos + length, new TextCell( ' ', getAttributes() ) );
+    // Update the heat map...
+    Arrays.fill( m_heatMap, destPos + length, srcPos + length, true );
   }
 
   /**

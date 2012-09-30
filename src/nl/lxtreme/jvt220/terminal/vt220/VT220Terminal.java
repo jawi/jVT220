@@ -537,6 +537,8 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
 
     // Make sure the terminal is in a known state...
     reset();
+
+    m_vt220parser.setLogLevel( 1 );
   }
 
   // METHODS
@@ -912,7 +914,15 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
         // cursor is outside the scrolling region.
         int lines = parameters[0];
 
-        scrollDown( lines ); // XXX this is not correct!
+        int row = idx / getWidth();
+        if ( row >= getFirstScrollLine() && row < getLastScrollLine() )
+        {
+          int col = idx % getWidth();
+          
+          scrollDown( row, getLastScrollLine(), lines );
+
+          idx -= col;
+        }
         break;
       }
 
@@ -928,7 +938,15 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
         // outside the scrolling region.
         int lines = parameters[0];
 
-        scrollUp( lines ); // XXX this is not correct!
+        int row = idx / getWidth();
+        if ( row >= getFirstScrollLine() && row < getLastScrollLine() )
+        {
+          int col = idx % getWidth();
+          
+          scrollUp( row, getLastScrollLine(), lines );
+
+          idx -= col;
+        }
         break;
       }
 
@@ -2433,6 +2451,7 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
     set8bitMode( false );
     set132ColumnMode( false );
     setEnable132ColumnMode( true );
+    setReverse( false );
     // Sets selective erase mode off (DECSCA)
     setErasureMode( true );
 

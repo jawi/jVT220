@@ -38,6 +38,7 @@ public class VT220TerminalTest extends TestCase
     assertEquals( 'A', m_terminal.getCellAt( 0, 0 ).getChar() );
     assertEquals( 'B', m_terminal.getCellAt( 79, 0 ).getChar() );
   }
+  
 
   /**
    * Tests that the auto-wrap mode is handled correctly in combination with the
