@@ -505,10 +505,11 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
   // CONSTANTS
 
   private static final int OPTION_132COLS = 5;
-  private static final int OPTION_8BIT = 6;
-  private static final int OPTION_ERASURE_MODE = 7;
-  private static final int OPTION_REVERSE_WRAP_AROUND = 8;
-  private static final int OPTION_APPLICATION_CURSOR_KEYS = 9;
+  private static final int OPTION_ENABLE_132COLS = 6;
+  private static final int OPTION_8BIT = 7;
+  private static final int OPTION_ERASURE_MODE = 8;
+  private static final int OPTION_REVERSE_WRAP_AROUND = 9;
+  private static final int OPTION_APPLICATION_CURSOR_KEYS = 10;
 
   // VARIABLES
 
@@ -565,7 +566,7 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
     {
       case ENQ:
       {
-        // Answerback
+        // Answerback, always respond with the name of this class...
         write( getClass().getSimpleName() );
         break;
       }
@@ -1127,14 +1128,17 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
 
           case 3:
             // (DECCOLM) switch 80/132 column mode; default = 80 columns.
-            set132ColumnMode( true );
-            // Clear entire screen...
-            clearScreen( 2 );
-            // Reset scrolling region...
-            setOriginMode( false );
-            setScrollRegion( getFirstScrollLine(), getLastScrollLine() );
-            // Reset cursor to first possible position...
-            idx = getAbsoluteIndex( 0, getFirstScrollLine() );
+            if ( isEnable132ColumnMode() )
+            {
+              set132ColumnMode( true );
+              // Clear entire screen...
+              clearScreen( 2 );
+              // Reset scrolling region...
+              setOriginMode( false );
+              setScrollRegion( getFirstScrollLine(), getLastScrollLine() );
+              // Reset cursor to first possible position...
+              idx = getAbsoluteIndex( 0, getFirstScrollLine() );
+            }
             break;
 
           case 4:
@@ -1159,9 +1163,18 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
             setAutoWrap( true );
             break;
 
+          case 8:
+            // (DECARM) set auto-repeat mode; ignore.
+            break;
+
           case 25:
             // (DECTCEM) Show Cursor; default = on.
             getCursor().setVisible( true );
+            break;
+
+          case 40:
+            // Allow 80 -> 132 mode switching
+            setEnable132ColumnMode( true );
             break;
 
           case 45:
@@ -1287,9 +1300,18 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
             setAutoWrap( false );
             break;
 
+          case 8:
+            // (DECARM) disable auto-repeat mode; ignore.
+            break;
+
           case 25:
             // (DECTCEM) Hide Cursor; default = on.
             getCursor().setVisible( false );
+            break;
+
+          case 40:
+            // Disallow 80 -> 132 mode switching
+            setEnable132ColumnMode( false );
             break;
 
           case 45:
@@ -1881,6 +1903,18 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
   }
 
   /**
+   * Returns whether or not it is allows to switch from 80 to 132 columns.
+   * 
+   * @return <code>true</code> if switching from 80 to 132 column mode is
+   *         allowed, <code>false</code> otherwise.
+   * @see #setEnable132ColumnMode(boolean)
+   */
+  protected final boolean isEnable132ColumnMode()
+  {
+    return m_options.get( OPTION_ENABLE_132COLS );
+  }
+
+  /**
    * Returns whether or not protected content can be erased.
    * 
    * @return <code>true</code> if only unprotected content can be erased,
@@ -1961,6 +1995,18 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
   protected final void setApplicationCursorKeys( boolean enable )
   {
     m_options.set( OPTION_APPLICATION_CURSOR_KEYS, enable );
+  }
+
+  /**
+   * Sets whether or not the switching from 80 to 132 columns is allowed.
+   * 
+   * @param enable
+   *          <code>true</code> to allow switching from 80 to 132 columns,
+   *          <code>false</code> to disallow this switching.
+   */
+  protected final void setEnable132ColumnMode( boolean enable )
+  {
+    m_options.set( OPTION_ENABLE_132COLS, enable );
   }
 
   /**
@@ -2379,6 +2425,7 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
 
     set8bitMode( false );
     set132ColumnMode( false );
+    setEnable132ColumnMode( true );
     // Sets selective erase mode off (DECSCA)
     setErasureMode( true );
 
