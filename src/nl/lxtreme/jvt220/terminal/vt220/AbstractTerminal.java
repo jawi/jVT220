@@ -943,8 +943,8 @@ public abstract class AbstractTerminal implements ITerminal
     int endIdx = absoluteIndex + getWidth() - col;
     Arrays.fill( m_buffer, startIdx, endIdx, new TextCell( ' ', getAttributes() ) );
 
-    // Update the heat map...
-    Arrays.fill( m_heatMap, absoluteIndex, endIdx, true );
+    // Update the heat map for the *full* line...
+    Arrays.fill( m_heatMap, absoluteIndex, absoluteIndex + getWidth() - col, true );
 
     return absoluteIndex;
   }
@@ -1056,8 +1056,8 @@ public abstract class AbstractTerminal implements ITerminal
     // Fill the created room with the character to insert...
     Arrays.fill( m_buffer, absoluteIndex, absoluteIndex + count, new TextCell( ch, getAttributes() ) );
 
-    // Update the heat map...
-    Arrays.fill( m_heatMap, absoluteIndex, absoluteIndex + count, true );
+    // Update the heat map for the *full* line...
+    Arrays.fill( m_heatMap, absoluteIndex, absoluteIndex + getWidth() - col, true );
 
     return absoluteIndex;
   }

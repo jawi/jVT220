@@ -24,6 +24,22 @@ public class VT220TerminalTest extends TestCase
   // METHODS
 
   /**
+   * Tests that the insert mode works.
+   */
+  public void testInsertModeOk() throws IOException
+  {
+    m_terminal.read( "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" );
+    m_terminal.read( "\033[2;1H\033[0J\033[1;2H" );
+    m_terminal.read( "B" );
+    m_terminal.read( "\033[1D\033[4h" );
+    m_terminal.read( "******************************************************************************" );
+    m_terminal.read( "\033[4l\033[4;1H" );
+
+    assertEquals( 'A', m_terminal.getCellAt( 0, 0 ).getChar() );
+    assertEquals( 'B', m_terminal.getCellAt( 79, 0 ).getChar() );
+  }
+
+  /**
    * Tests that the auto-wrap mode is handled correctly in combination with the
    * backward movement of the cursor.
    */

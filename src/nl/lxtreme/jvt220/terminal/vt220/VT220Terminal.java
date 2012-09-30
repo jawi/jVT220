@@ -549,7 +549,14 @@ public class VT220Terminal extends AbstractTerminal implements VT220ParserHandle
   {
     int idx = getAbsoluteCursorIndex();
 
-    idx = writeChar( idx, m_graphicSetState.map( ch ) );
+    if ( isInsertMode() )
+    {
+      idx = insertChars( idx, m_graphicSetState.map( ch ), 1 ) + 1;
+    }
+    else
+    {
+      idx = writeChar( idx, m_graphicSetState.map( ch ) );
+    }
 
     updateCursorByAbsoluteIndex( idx );
   }
