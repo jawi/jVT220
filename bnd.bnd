@@ -1,11 +1,6 @@
--buildpath: lib/jna.jar;version=file,\
-	lib/platform.jar;version=file,\
-	lib/purejavacomm-0.0.8.jar;version=file,\
-	junit.osgi;version=3.8.2,\
-	org.mockito.mockito-all;version=1.8.5,\
-	jpty;version=latest
-Private-Package: nl.lxtreme.jvt220.terminal,\
-	nl.lxtreme.jvt220.terminal.vt220,\
-	nl.lxtreme.jvt220.terminal.swing,\
-	nl.lxtreme.test
-Bundle-Version: 0.0.5
+-buildpath: junit.osgi;version=3.8.2
+Bundle-Version: 0.0.6
+Export-Package: \
+    nl.lxtreme.jvt220.terminal,\
+    nl.lxtreme.jvt220.terminal.vt220,\
+    nl.lxtreme.jvt220.terminal.swing
