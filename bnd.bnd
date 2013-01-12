@@ -1,5 +1,5 @@
 -buildpath: junit.osgi;version=3.8.2
-Bundle-Version: 0.0.6
+Bundle-Version: 1.0.0
 Export-Package: \
     nl.lxtreme.jvt220.terminal,\
     nl.lxtreme.jvt220.terminal.vt220,\
