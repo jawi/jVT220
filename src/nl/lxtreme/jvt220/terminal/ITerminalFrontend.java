@@ -23,6 +23,7 @@ package nl.lxtreme.jvt220.terminal;
 
 import java.awt.*;
 import java.io.*;
+import java.util.*;
 
 import nl.lxtreme.jvt220.terminal.ITerminal.ITextCell;
 
@@ -41,6 +42,10 @@ public interface ITerminalFrontend
 
   /**
    * Connects this front end to the given input and output streams.
+   * <p>
+   * This method will start a background thread to read continuously from the
+   * given input stream.
+   * </p>
    * 
    * @param inputStream
    *          the input stream to read the data that should be passed to the
@@ -53,6 +58,22 @@ public interface ITerminalFrontend
    *           streams.
    */
   void connect( InputStream inputStream, OutputStream outputStream ) throws IOException;
+
+  /**
+   * Connects this frontend to a given output stream.
+   * <p>
+   * NOTE: when using this method, you need to explicitly call
+   * {@link #writeCharacters(Integer...)} yourself in order to let anything
+   * appear on the terminal.
+   * </p>
+   * 
+   * @param outputStream
+   *          the output stream to write the data back coming from the terminal,
+   *          cannot be <code>null</code>.
+   * @throws IOException
+   *           in case of I/O problems connecting the given output streams.
+   */
+  void connect( OutputStream outputStream ) throws IOException;
 
   /**
    * Disconnects this front end from a connected input and output stream.
@@ -129,7 +150,7 @@ public interface ITerminalFrontend
    *          the "heat" map, representing all changed cells of the terminal,
    *          never <code>null</code>.
    */
-  void terminalChanged( ITextCell[] cells, boolean[] heatMap );
+  void terminalChanged( ITextCell[] cells, BitSet heatMap );
 
   /**
    * Called by {@link ITerminal} to notify the dimensions of the terminal have
@@ -141,4 +162,26 @@ public interface ITerminalFrontend
    *          the new number of lines, > 0.
    */
   void terminalSizeChanged( int columns, int alines );
+
+  /**
+   * Writes the given array of characters directly to the terminal, similar as
+   * writing to the standard output.
+   * 
+   * @param chars
+   *          the array with characters to write, cannot be <code>null</code>.
+   * @throws IOException
+   *           in case of I/O problems writing to the terminal.
+   */
+  void writeCharacters( Integer... chars ) throws IOException;
+
+  /**
+   * Writes the given sequence of characters directly to the terminal, similar
+   * as writing to the standard output.
+   * 
+   * @param chars
+   *          the sequence of characters to write, cannot be <code>null</code>.
+   * @throws IOException
+   *           in case of I/O problems writing to the terminal.
+   */
+  void writeCharacters( CharSequence chars ) throws IOException;
 }

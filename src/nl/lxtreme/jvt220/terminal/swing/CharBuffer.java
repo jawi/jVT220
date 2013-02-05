@@ -102,11 +102,11 @@ final class CharBuffer implements CharSequence
    * Appends a given list of characters to this buffer.
    * 
    * @param aChars
-   *          the list with characters to add, cannot be <code>null</code>.
+   *          the characters to add, cannot be <code>null</code>.
    * @throws IllegalArgumentException
    *           in case the given list was <code>null</code>.
    */
-  public void append( final List<Integer> aChars )
+  public void append( final Integer... aChars )
   {
     if ( aChars == null )
     {
@@ -125,18 +125,15 @@ final class CharBuffer implements CharSequence
       Integer[] curArray = curState.chars;
       int curAppendPos = curState.appendPos;
 
-      if ( ( curAppendPos + aChars.size() ) >= curArray.length )
+      if ( ( curAppendPos + aChars.length ) >= curArray.length )
       {
         // Enlarge array...
-        curArray = Arrays.copyOf( curArray, curArray.length + aChars.size() + 10 );
+        curArray = Arrays.copyOf( curArray, curArray.length + aChars.length + 10 );
       }
 
-      for ( int i = 0; i < aChars.size(); i++ )
-      {
-        curArray[curAppendPos++] = aChars.get( i );
-      }
+      System.arraycopy( aChars, 0, curArray, curAppendPos, aChars.length );
 
-      newState = new CharBufferState( curArray, curAppendPos );
+      newState = new CharBufferState( curArray, curAppendPos + aChars.length );
     }
     while ( !this.stateRef.compareAndSet( curState, newState ) );
   }

@@ -27,6 +27,7 @@ import java.awt.font.*;
 import java.awt.image.*;
 import java.io.*;
 import java.text.*;
+import java.util.*;
 import java.util.List;
 
 import javax.swing.*;
@@ -79,17 +80,21 @@ public class SwingFrontend extends JComponent implements ITerminalFrontend
     // VARIABLES
 
     private final InputStreamReader m_reader;
-    private final CharBuffer m_buffer;
 
     // CONSTRUCTORS
 
     /**
      * Creates a new {@link InputStreamWorker} instance.
+     * 
+     * @param inputStream
+     *          the input stream to read from, cannot be <code>null</code>;
+     * @param encoding
+     *          the character encoding to use for the read input, cannot be
+     *          <code>null</code>.
      */
-    public InputStreamWorker( final InputStream inputStream ) throws IOException
+    public InputStreamWorker( final InputStream inputStream, String encoding ) throws IOException
     {
-      m_reader = new InputStreamReader( inputStream, ISO8859_1 );
-      m_buffer = new CharBuffer();
+      m_reader = new InputStreamReader( inputStream, encoding );
     }
 
     // METHODS
@@ -111,15 +116,11 @@ public class SwingFrontend extends JComponent implements ITerminalFrontend
     @Override
     protected void process( final List<Integer> readChars )
     {
-      m_buffer.append( readChars );
+      Integer[] chars = readChars.toArray( new Integer[readChars.size()] );
 
       try
       {
-        int n = m_terminal.read( m_buffer );
-
-        m_buffer.removeUntil( n );
-
-        repaint();
+        writeCharacters( chars );
       }
       catch ( IOException exception )
       {
@@ -137,6 +138,9 @@ public class SwingFrontend extends JComponent implements ITerminalFrontend
 
   // VARIABLES
 
+  private final String m_encoding;
+  private final CharBuffer m_buffer;
+
   private ITerminalColorScheme m_colorScheme;
   private ICursor m_oldCursor;
   private volatile CharacterDimensions m_charDims;
@@ -149,15 +153,28 @@ public class SwingFrontend extends JComponent implements ITerminalFrontend
   // CONSTRUCTORS
 
   /**
-   * Creates a new {@link SwingFrontend} instance.
-   * 
-   * @param aColumns
-   *          the number of initial columns, > 0;
-   * @param aLines
-   *          the number of initial lines, > 0.
+   * Creates a new {@link SwingFrontend} instance using ISO8859-1 encoding.
    */
   public SwingFrontend()
   {
+    this( ISO8859_1 );
+  }
+
+  /**
+   * Creates a new {@link SwingFrontend} instance.
+   * 
+   * @param encoding
+   *          the character encoding to use for the terminal.
+   */
+  public SwingFrontend( String encoding )
+  {
+    if ( encoding == null || "".equals( encoding.trim() ) )
+    {
+      throw new IllegalArgumentException( "Encoding cannot be null or empty!" );
+    }
+
+    m_encoding = encoding;
+    m_buffer = new CharBuffer();
     m_colorScheme = new XtermColorScheme();
 
     setFont( Font.decode( "Monospaced-PLAIN-14" ) );
@@ -169,6 +186,8 @@ public class SwingFrontend extends JComponent implements ITerminalFrontend
     setFocusTraversalKeysEnabled( false ); // disables TAB handling
     requestFocus();
   }
+
+  // METHODS
 
   /**
    * Calculates the character dimensions for the given font, which is presumed
@@ -196,26 +215,92 @@ public class SwingFrontend extends JComponent implements ITerminalFrontend
     return new CharacterDimensions( w, h, fm.getLeading() + 1 );
   }
 
-  // METHODS
+  /**
+   * Calculates the union of two rectangles, allowing <code>null</code> values
+   * to be passed in.
+   * 
+   * @param rect1
+   *          the 1st rectangle to create the union, if <code>null</code>, the
+   *          2nd argument will be returned;
+   * @param rect2
+   *          the 2nd rectangle to create the union, if <code>null</code>, the
+   *          1st argument will be returned.
+   * @return the union of the two given rectangles.
+   */
+  private static Rectangle union( Rectangle rect1, Rectangle rect2 )
+  {
+    if ( rect2 == null )
+    {
+      return rect1;
+    }
+    if ( rect1 == null )
+    {
+      return rect2;
+    }
+
+    return rect1.union( rect2 );
+  }
 
   /**
    * Connects this frontend to a given input and output stream.
+   * <p>
+   * This method will start a background thread to read continuously from the
+   * given input stream.
+   * </p>
    * 
    * @param inputStream
-   *          the input stream to connect to;
+   *          the input stream to connect to, cannot be <code>null</code>;
    * @param outputStream
-   *          the output stream to connect to.
+   *          the output stream to connect to, cannot be <code>null</code>.
    * @throws IOException
    *           in case of I/O problems.
    */
+  @Override
   public void connect( InputStream inputStream, OutputStream outputStream ) throws IOException
   {
+    if ( inputStream == null )
+    {
+      throw new IllegalArgumentException( "Input stream cannot be null!" );
+    }
+    if ( outputStream == null )
+    {
+      throw new IllegalArgumentException( "Output stream cannot be null!" );
+    }
+
     disconnect();
 
-    m_writer = new OutputStreamWriter( outputStream, ISO8859_1 );
+    m_writer = new OutputStreamWriter( outputStream, m_encoding );
 
-    m_inputStreamWorker = new InputStreamWorker( inputStream );
+    m_inputStreamWorker = new InputStreamWorker( inputStream, m_encoding );
     m_inputStreamWorker.execute();
+
+    setEnabled( true );
+  }
+
+  /**
+   * Connects this frontend to a given output stream.
+   * <p>
+   * NOTE: when using this method, you need to explicitly call
+   * {@link #writeCharacters(Integer...)} yourself in order to let anything
+   * appear on the terminal.
+   * </p>
+   * 
+   * @param outputStream
+   *          the output stream to connect to, cannot be <code>null</code>.
+   * @throws IOException
+   *           in case of I/O problems.
+   */
+  @Override
+  public void connect( OutputStream outputStream ) throws IOException
+  {
+    if ( outputStream == null )
+    {
+      throw new IllegalArgumentException( "Output stream cannot be null!" );
+    }
+
+    disconnect();
+
+    m_writer = new OutputStreamWriter( outputStream, m_encoding );
 
     setEnabled( true );
   }
@@ -226,6 +311,7 @@ public class SwingFrontend extends JComponent implements ITerminalFrontend
    * @throws IOException
    *           in case of I/O problems.
    */
+  @Override
   public void disconnect() throws IOException
   {
     try
@@ -370,7 +456,7 @@ public class SwingFrontend extends JComponent implements ITerminalFrontend
    * {@inheritDoc}
    */
   @Override
-  public void terminalChanged( ITextCell[] cells, boolean[] heatMap )
+  public void terminalChanged( ITextCell[] cells, BitSet heatMap )
   {
     final int columns = m_terminal.getWidth();
     final int lines = m_terminal.getHeight();
@@ -396,17 +482,18 @@ public class SwingFrontend extends JComponent implements ITerminalFrontend
     final FontMetrics fm = canvas.getFontMetrics();
     final FontRenderContext frc = new FontRenderContext( null, true /* aa */, true /* fractionalMetrics */);
 
-    if ( m_oldCursor != null )
-    {
-      drawCursor( canvas, m_oldCursor, m_colorScheme.getBackgroundColor() );
-    }
-
     Color cursorColor = null;
     Rectangle repaintArea = null;
 
-    for ( int i = 0; i < heatMap.length; i++ )
+    if ( m_oldCursor != null )
     {
-      if ( heatMap[i] )
+      repaintArea = drawCursor( canvas, m_oldCursor, m_colorScheme.getBackgroundColor() );
+    }
+
+    for ( int i = 0; i < cells.length; i++ )
+    {
+      boolean cellChanged = heatMap.get( i );
+      if ( cellChanged )
       {
         // Cell is changed...
         final ITextCell cell = cells[i];
@@ -433,14 +520,7 @@ public class SwingFrontend extends JComponent implements ITerminalFrontend
           textLayout.draw( canvas, x, y + fm.getAscent() );
         }
 
-        if ( repaintArea == null )
-        {
-          repaintArea = rect;
-        }
-        else
-        {
-          repaintArea = rect.intersection( repaintArea );
-        }
+        repaintArea = union( repaintArea, rect );
       }
     }
 
@@ -451,13 +531,14 @@ public class SwingFrontend extends JComponent implements ITerminalFrontend
       cursorColor = m_colorScheme.getTextColor();
     }
 
-    drawCursor( canvas, m_oldCursor, cursorColor );
+    repaintArea = union( repaintArea, drawCursor( canvas, m_oldCursor, cursorColor ) );
 
     // Free the resources...
     canvas.dispose();
 
-    if ( ( repaintArea != null ) && !repaintArea.isEmpty() )
+    if ( repaintArea != null )
     {
+      repaintArea.grow( 5, 3 );
       repaint( repaintArea );
     }
   }
@@ -500,6 +581,47 @@ public class SwingFrontend extends JComponent implements ITerminalFrontend
   }
 
   /**
+   * Writes the given sequence of characters directly to the terminal, similar
+   * as writing to the standard output.
+   * 
+   * @param charSeq
+   *          the sequence of characters to write, cannot be <code>null</code>.
+   * @throws IOException
+   *           in case of I/O problems writing to the terminal.
+   */
+  @Override
+  public void writeCharacters( CharSequence charSeq ) throws IOException
+  {
+    InputStream is = new ByteArrayInputStream( charSeq.toString().getBytes() );
+    InputStreamReader isr = new InputStreamReader( is, m_encoding );
+
+    int ch;
+    while ( ( ch = isr.read() ) >= 0 )
+    {
+      writeCharacters( ch );
+    }
+  }
+
+  /**
+   * Writes the given array of characters directly to the terminal, similar as
+   * writing to the standard output.
+   * 
+   * @param chars
+   *          the characters to write, cannot be <code>null</code>.
+   * @throws IOException
+   *           in case of I/O problems writing to the terminal.
+   */
+  @Override
+  public void writeCharacters( Integer... chars ) throws IOException
+  {
+    m_buffer.append( chars );
+
+    int n = m_terminal.read( m_buffer );
+
+    m_buffer.removeUntil( n );
+  }
+
+  /**
    * Maps the keyboard to respond to keys like 'up', 'down' and the function
    * keys.
    */
@@ -536,13 +658,13 @@ public class SwingFrontend extends JComponent implements ITerminalFrontend
     mapKeystroke( KeyEvent.VK_KP_UP );
 
     mapKeystroke( KeyEvent.VK_F1 );
-    mapKeystroke( KeyEvent.VK_F1, KeyEvent.ALT_DOWN_MASK );
+    mapKeystroke( KeyEvent.VK_F1, InputEvent.ALT_DOWN_MASK );
     mapKeystroke( KeyEvent.VK_F2 );
-    mapKeystroke( KeyEvent.VK_F2, KeyEvent.ALT_DOWN_MASK );
+    mapKeystroke( KeyEvent.VK_F2, InputEvent.ALT_DOWN_MASK );
     mapKeystroke( KeyEvent.VK_F3 );
-    mapKeystroke( KeyEvent.VK_F3, KeyEvent.ALT_DOWN_MASK );
+    mapKeystroke( KeyEvent.VK_F3, InputEvent.ALT_DOWN_MASK );
     mapKeystroke( KeyEvent.VK_F4 );
-    mapKeystroke( KeyEvent.VK_F4, KeyEvent.ALT_DOWN_MASK );
+    mapKeystroke( KeyEvent.VK_F4, InputEvent.ALT_DOWN_MASK );
     mapKeystroke( KeyEvent.VK_F5 );
     mapKeystroke( KeyEvent.VK_F6 );
     mapKeystroke( KeyEvent.VK_F7 );
@@ -637,36 +759,43 @@ public class SwingFrontend extends JComponent implements ITerminalFrontend
     InputMap inputMap = getInputMap( condition );
     ActionMap actionMap = getActionMap();
 
-    if ( ( inputMap != null ) && ( actionMap != null ) && ( event.getID() == KeyEvent.KEY_PRESSED ) )
+    try
     {
-      Object binding = inputMap.get( keystroke );
-      if ( binding != null )
+      if ( ( inputMap != null ) && ( actionMap != null ) && ( event.getID() == KeyEvent.KEY_PRESSED ) )
       {
-        Action action = actionMap.get( binding );
-        if ( action != null )
+        Object binding = inputMap.get( keystroke );
+        if ( binding != null )
         {
-          // Normal action; invoke it...
-          return SwingUtilities.notifyAction( action, keystroke, event, this, event.getModifiers() );
-        }
-        else
-        {
-          // Keystroke we've mapped without an action, means we're going to test
-          // whether there's a mapping for it. If so, use that as response,
-          // otherwise respond with the 'regular' key...
-          String mapping = mapKeyCode( keystroke.getKeyCode(), keystroke.getModifiers() );
-          if ( mapping != null )
+          Action action = actionMap.get( binding );
+          if ( action != null )
           {
-            writeCharacters( mapping );
-            return true;
+            // Normal action; invoke it...
+            return SwingUtilities.notifyAction( action, keystroke, event, this, event.getModifiers() );
+          }
+          else
+          {
+            // Keystroke we've mapped without an action, means we're going to
+            // test whether there's a mapping for it. If so, use that as
+            // response, otherwise respond with the 'regular' key...
+            String mapping = mapKeyCode( keystroke.getKeyCode(), keystroke.getModifiers() );
+            if ( mapping != null )
+            {
+              respond( mapping );
+              return true;
+            }
           }
         }
-      }
 
-      if ( isRegularKey( keystroke ) )
-      {
-        writeCharacter( event.getKeyChar() );
-        return true;
+        if ( isRegularKey( keystroke ) )
+        {
+          respond( event.getKeyChar() );
+          return true;
+        }
       }
+    }
+    catch ( IOException exception )
+    {
+      exception.printStackTrace(); // XXX
     }
 
     return false;
@@ -677,21 +806,15 @@ public class SwingFrontend extends JComponent implements ITerminalFrontend
    * 
    * @param chars
    *          the characters to write, cannot be <code>null</code>.
+   * @throws IOException
+   *           in case of I/O problems responding.
    */
-  protected void writeCharacter( char ch )
+  protected void respond( char ch ) throws IOException
   {
-    try
+    if ( m_writer != null )
     {
-      if ( m_writer != null )
-      {
-        m_writer.write( ch );
-        m_writer.flush();
-      }
-    }
-    catch ( IOException e )
-    {
-      // TODO Auto-generated catch block
-      e.printStackTrace();
+      m_writer.write( ch );
+      m_writer.flush();
     }
   }
 
@@ -700,21 +823,15 @@ public class SwingFrontend extends JComponent implements ITerminalFrontend
    * 
    * @param chars
    *          the characters to write, cannot be <code>null</code>.
+   * @throws IOException
+   *           in case of I/O problems responding.
    */
-  protected void writeCharacters( String chars )
+  protected void respond( String chars ) throws IOException
   {
-    try
+    if ( m_writer != null )
     {
-      if ( m_writer != null )
-      {
-        m_writer.write( chars );
-        m_writer.flush();
-      }
-    }
-    catch ( IOException e )
-    {
-      // TODO Auto-generated catch block
-      e.printStackTrace();
+      m_writer.write( chars );
+      m_writer.flush();
     }
   }
 
@@ -791,7 +908,7 @@ public class SwingFrontend extends JComponent implements ITerminalFrontend
       insets.bottom += compInsets.bottom;
       insets.left += compInsets.left;
       insets.right += compInsets.right;
-      ptr = ( Container )ptr.getParent();
+      ptr = ptr.getParent();
     }
     while ( ptr != null );
     return insets;
@@ -825,11 +942,11 @@ public class SwingFrontend extends JComponent implements ITerminalFrontend
    * @param color
    *          the color to paint the cursor in.
    */
-  private void drawCursor( final Graphics canvas, final ICursor cursor, final Color color )
+  private Rectangle drawCursor( final Graphics2D canvas, final ICursor cursor, final Color color )
   {
     if ( !cursor.isVisible() )
     {
-      return;
+      return null;
     }
 
     CharacterDimensions charDims = m_charDims;
@@ -841,8 +958,12 @@ public class SwingFrontend extends JComponent implements ITerminalFrontend
     int x = cursor.getX() * cw;
     int y = cursor.getY() * ( ch + ls );
 
+    Rectangle rect = new Rectangle( x, y, cw, ch - 2 * ls );
+
     canvas.setColor( color );
-    canvas.drawRect( x, y, cw, ch - 2 * ls );
+    canvas.draw( rect );
+
+    return rect;
   }
 
   /**

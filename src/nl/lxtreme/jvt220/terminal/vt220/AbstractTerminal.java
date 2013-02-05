@@ -211,7 +211,7 @@ public abstract class AbstractTerminal implements ITerminal
   protected final TextAttributes m_textAttributes;
 
   private volatile ITerminalFrontend m_frontend;
-  private volatile boolean[] m_heatMap;
+  private volatile BitSet m_heatMap;
   private volatile TextCell[] m_buffer;
   private volatile int m_width;
   private volatile int m_height;
@@ -530,11 +530,12 @@ public abstract class AbstractTerminal implements ITerminal
     if ( m_frontend != null && m_frontend.isListening() )
     {
       TextCell[] b = m_buffer.clone();
-      boolean[] hm = m_heatMap.clone();
+      BitSet hm = ( BitSet )m_heatMap.clone();
 
       m_frontend.terminalChanged( b, hm );
 
-      Arrays.fill( m_heatMap, false );
+      // Mark all "hot spots" as being processed...
+      m_heatMap.clear();
     }
 
     return r;
@@ -699,7 +700,7 @@ public abstract class AbstractTerminal implements ITerminal
   {
     m_options.set( OPTION_REVERSE, enable );
     // The entire screen should be redrawn...
-    Arrays.fill( m_heatMap, true );
+    m_heatMap.set( getFirstAbsoluteIndex(), getLastAbsoluteIndex() );
 
     if ( m_frontend != null )
     {
@@ -877,7 +878,7 @@ public abstract class AbstractTerminal implements ITerminal
           Arrays.fill( m_buffer, getFirstAbsoluteIndex(), getLastAbsoluteIndex() + 1, new TextCell( ' ',
               getAttributes() ) );
           // Update the heat map...
-          Arrays.fill( m_heatMap, true );
+          m_heatMap.set( getFirstAbsoluteIndex(), getLastAbsoluteIndex() );
         }
         break;
 
@@ -921,7 +922,7 @@ public abstract class AbstractTerminal implements ITerminal
     Arrays.fill( m_buffer, startIdx, endIdx, new TextCell( ' ', getAttributes() ) );
 
     // Update the heat map for the *full* line...
-    Arrays.fill( m_heatMap, absoluteIndex, absoluteIndex + getWidth() - col, true );
+    m_heatMap.set( absoluteIndex, absoluteIndex + getWidth() - col );
 
     return absoluteIndex;
   }
@@ -1034,7 +1035,7 @@ public abstract class AbstractTerminal implements ITerminal
     Arrays.fill( m_buffer, absoluteIndex, absoluteIndex + count, new TextCell( ch, getAttributes() ) );
 
     // Update the heat map for the *full* line...
-    Arrays.fill( m_heatMap, absoluteIndex, absoluteIndex + getWidth() - col, true );
+    m_heatMap.set( absoluteIndex, absoluteIndex + getWidth() - col );
 
     return absoluteIndex;
   }
@@ -1093,7 +1094,7 @@ public abstract class AbstractTerminal implements ITerminal
     if ( !( keepProtectedCells && m_buffer[idx].isProtected() ) )
     {
       m_buffer[idx] = new TextCell( ' ', getAttributes() );
-      m_heatMap[idx] = true;
+      m_heatMap.set( idx );
     }
 
     return idx;
@@ -1152,7 +1153,7 @@ public abstract class AbstractTerminal implements ITerminal
 
     Arrays.fill( m_buffer, srcPos, destPos, new TextCell( ' ', getAttributes() ) );
     // Update the heat map...
-    Arrays.fill( m_heatMap, srcPos, destPos, true );
+    m_heatMap.set( srcPos, destPos );
   }
 
   /**
@@ -1200,7 +1201,7 @@ public abstract class AbstractTerminal implements ITerminal
     }
     Arrays.fill( m_buffer, destPos + length, srcPos + length, new TextCell( ' ', getAttributes() ) );
     // Update the heat map...
-    Arrays.fill( m_heatMap, destPos + length, srcPos + length, true );
+    m_heatMap.set( destPos, lastPos );
   }
 
   /**
@@ -1244,7 +1245,7 @@ public abstract class AbstractTerminal implements ITerminal
     if ( idx <= lastIdx )
     {
       m_buffer[idx] = new TextCell( ch, getAttributes() );
-      m_heatMap[idx] = true;
+      m_heatMap.set( idx );
     }
 
     // determine new absolute index...
@@ -1309,7 +1310,7 @@ public abstract class AbstractTerminal implements ITerminal
     m_lastScrollLine = height - 1;
 
     m_buffer = newBuffer;
-    m_heatMap = new boolean[newBuffer.length];
+    m_heatMap = new BitSet( newBuffer.length );
 
     if ( m_frontend != null )
     {
