@@ -456,13 +456,135 @@ public class SwingFrontend extends JComponent implements ITerminalFrontend
    * {@inheritDoc}
    */
   @Override
-  public void terminalChanged( ITextCell[] cells, BitSet heatMap )
+  public void terminalChanged( final ITextCell[] cells, final BitSet heatMap )
   {
+    SwingUtilities.invokeLater( new Runnable()
+    {
+      @Override
+      public void run()
+      {
+        updateTerminalImage( cells, heatMap );
+      }
+    } );
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  @Override
+  public void terminalSizeChanged( final int columns, final int lines )
+  {
+    SwingUtilities.invokeLater( new Runnable()
+    {
+      @Override
+      public void run()
+      {
+        recreateTerminalImage( columns, lines, true /* forceRepaint */ );
+      }
+    } );
+  }
+
+  /**
+   * Writes the given sequence of characters directly to the terminal, similar
+   * as writing to the standard output.
+   * 
+   * @param charSeq
+   *          the sequence of characters to write, cannot be <code>null</code>.
+   * @throws IOException
+   *           in case of I/O problems writing to the terminal.
+   */
+  @Override
+  public void writeCharacters( CharSequence charSeq ) throws IOException
+  {
+    InputStream is = new ByteArrayInputStream( charSeq.toString().getBytes() );
+    InputStreamReader isr = new InputStreamReader( is, m_encoding );
+
+    int ch;
+    while ( ( ch = isr.read() ) >= 0 )
+    {
+      writeCharacters( ch );
+    }
+  }
+
+  /**
+   * Writes the given array of characters directly to the terminal, similar as
+   * writing to the standard output.
+   * 
+   * @param chars
+   *          the characters to write, cannot be <code>null</code>.
+   * @throws IOException
+   *           in case of I/O problems writing to the terminal.
+   */
+  @Override
+  public void writeCharacters( Integer... chars ) throws IOException
+  {
+    m_buffer.append( chars );
+
+    int n = m_terminal.read( m_buffer );
+
+    m_buffer.removeUntil( n );
+  }
+
+  /**
+   * Recreates the terminal image.
+   * 
+   * @param columns
+   *          the new number of columns, > 0;
+   * @param lines
+   *          the new number of lines, > 0.
+   */
+  void recreateTerminalImage( int columns, int lines, boolean forceRepaint )
+  {
+    assert SwingUtilities.isEventDispatchThread() : "Should be called from EDT only!";
+
+    final Dimension dims = calculateSizeInPixels( columns, lines );
+
+    if ( ( m_image == null ) || ( m_image.getWidth() != dims.width ) || ( m_image.getHeight() != dims.height ) )
+    {
+      if ( m_image != null )
+      {
+        m_image.flush();
+      }
+      m_image = getGraphicsConfiguration().createCompatibleImage( dims.width, dims.height );
+
+      Graphics2D canvas = m_image.createGraphics();
+
+      try
+      {
+        canvas.setBackground( m_colorScheme.getBackgroundColor() );
+        canvas.clearRect( 0, 0, m_image.getWidth(), m_image.getHeight() );
+      }
+      finally
+      {
+        canvas.dispose();
+        canvas = null;
+      }
+
+      // Update the size of this component as well...
+      Insets insets = getInsets();
+      super.setSize( dims.width + insets.left + insets.right, dims.height + insets.top + insets.bottom );
+
+      repaint( 50L );
+    }
+  }
+
+  /**
+   * Updates the image representing the terminal contents.
+   * 
+   * @param cells
+   *          the text cells;
+   * @param heatMap
+   *          the heat map denoting the changed cells.
+   */
+  void updateTerminalImage( ITextCell[] cells, BitSet heatMap )
+  {
+    assert SwingUtilities.isEventDispatchThread() : "Should be called from the EDT only!";
+
     final int columns = m_terminal.getWidth();
     final int lines = m_terminal.getHeight();
 
     // Create copies of these data items to ensure they remain constant for
-    // the remainer of this method...
+    // the remainder of this method...
     CharacterDimensions charDims = m_charDims;
 
     int cw = charDims.m_width;
@@ -472,7 +594,7 @@ public class SwingFrontend extends JComponent implements ITerminalFrontend
     if ( m_image == null )
     {
       // Ensure there's a valid image to paint on...
-      terminalSizeChanged( columns, lines );
+      recreateTerminalImage( columns, lines, false /* forceRepaint */ );
     }
 
     final Graphics2D canvas = m_image.createGraphics();
@@ -541,84 +663,6 @@ public class SwingFrontend extends JComponent implements ITerminalFrontend
       repaintArea.grow( 5, 3 );
       repaint( repaintArea );
     }
-  }
-
-  /**
-   * {@inheritDoc}
-   */
-  @Override
-  public void terminalSizeChanged( int columns, int lines )
-  {
-    final Dimension dims = calculateSizeInPixels( columns, lines );
-
-    if ( ( m_image == null ) || ( m_image.getWidth() != dims.width ) || ( m_image.getHeight() != dims.height ) )
-    {
-      if ( m_image != null )
-      {
-        m_image.flush();
-      }
-      m_image = getGraphicsConfiguration().createCompatibleImage( dims.width, dims.height );
-
-      Graphics2D canvas = m_image.createGraphics();
-
-      try
-      {
-        canvas.setBackground( m_colorScheme.getBackgroundColor() );
-        canvas.clearRect( 0, 0, m_image.getWidth(), m_image.getHeight() );
-      }
-      finally
-      {
-        canvas.dispose();
-        canvas = null;
-      }
-
-      // Update the size of this component as well...
-      Insets insets = getInsets();
-      super.setSize( dims.width + insets.left + insets.right, dims.height + insets.top + insets.bottom );
-
-      repaint( 50L );
-    }
-  }
-
-  /**
-   * Writes the given sequence of characters directly to the terminal, similar
-   * as writing to the standard output.
-   * 
-   * @param charSeq
-   *          the sequence of characters to write, cannot be <code>null</code>.
-   * @throws IOException
-   *           in case of I/O problems writing to the terminal.
-   */
-  @Override
-  public void writeCharacters( CharSequence charSeq ) throws IOException
-  {
-    InputStream is = new ByteArrayInputStream( charSeq.toString().getBytes() );
-    InputStreamReader isr = new InputStreamReader( is, m_encoding );
-
-    int ch;
-    while ( ( ch = isr.read() ) >= 0 )
-    {
-      writeCharacters( ch );
-    }
-  }
-
-  /**
-   * Writes the given array of characters directly to the terminal, similar as
-   * writing to the standard output.
-   * 
-   * @param chars
-   *          the characters to write, cannot be <code>null</code>.
-   * @throws IOException
-   *           in case of I/O problems writing to the terminal.
-   */
-  @Override
-  public void writeCharacters( Integer... chars ) throws IOException
-  {
-    m_buffer.append( chars );
-
-    int n = m_terminal.read( m_buffer );
-
-    m_buffer.removeUntil( n );
   }
 
   /**

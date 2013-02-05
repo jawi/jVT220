@@ -8,12 +8,9 @@ like VT340 and XTerm.
 ## History
 
 ```
-2013-01-12 | JaWi | v1.0 | Initial release.
-2013-02-05 | JaWi | v1.1 | Fixed incorrect calculation of heat map when
-           |      |      | scrolling up; improved the repainting of the
-           |      |      | Swing frontend; allow character encoding to
-           |      |      | be specified; allow external writes to the
-           |      |      | terminal.
+2013-01-12 | JaWi | v1.0.0 | Initial release.
+2013-02-05 | JaWi | v1.1.0 | Fixed incorrect calculation of heat map when scrolling up; improved the repainting of the Swing frontend; allow character encoding to be specified; allow external writes to the terminal.
+2013-02-05 | JaWi | v1.1.1 | The terminal calls the Swing frontend not from the EDT, ensure that all Swing-related actions are called from the EDT.  
 ```
 
 ## Author
